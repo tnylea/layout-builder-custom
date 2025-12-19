@@ -60,11 +60,8 @@
         saveHistory();
     "
     class="p-5">
-    asdf
-    <span x-text="message"></span>
-    wtf
         <template x-for="(row, rowIndex) in layout" :key="row.id">
-            <p>asdf</p>
+            <div x-text="row.id" class="h-24 w-full bg-gray-200"></div>
         </template>
     </section>
 </x-layouts.app>
