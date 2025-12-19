@@ -18,11 +18,3 @@
 [x-cloak] {
     display: none !important;
 }
-
-/* Canvas dot pattern background
-   Creates a subtle grid of dots to give a "design canvas" feel
-   This uses CSS radial-gradient which isn't available as a Tailwind utility */
-.layout-canvas {
-    background-image: radial-gradient(circle, #e2e8f0 1px, transparent 1px);
-    background-size: 24px 24px;
-}

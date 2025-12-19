@@ -14,7 +14,7 @@
 <div x-data="layoutBuilder()" class="min-h-screen flex flex-col">
 
     {{-- Main Canvas Area --}}
-    <main class="flex-1 py-10 layout-canvas">
+    <main class="flex-1 py-10">
 
         {{--
             Rows Container
@@ -71,7 +71,7 @@
                                     - Hover effects: blue border and shadow
                                 --}}
                                 <div
-                                    class="bg-white rounded-2xl border-2 border-dashed border-slate-300 p-6 flex items-center justify-center transition-all duration-200 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/10"
+                                    class="bg-white rounded-2xl border-2 border-dashed border-slate-300 p-6 flex items-center justify-center transition-all duration-200 hover:border-blue-500 hover:shadow-blue-500/10"
                                     :class="{
                                         'min-h-[100px]': slot.name !== 'Content',
                                         'min-h-[400px]': slot.name === 'Content'
