@@ -3,6 +3,26 @@
 @source '../views';
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 
+/* Safelist for dynamic grid classes used by the layout builder
+   Tailwind purges unused classes, but we generate classes like col-span-${width}
+   dynamically, so we need to tell Tailwind to always include these */
+@source "safelist.txt";
+
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+
+/* Alpine.js cloak - hides elements with x-cloak until Alpine initializes
+   This prevents flash of unstyled/uninitialized content */
+[x-cloak] {
+    display: none !important;
+}
+
+/* Canvas dot pattern background
+   Creates a subtle grid of dots to give a "design canvas" feel
+   This uses CSS radial-gradient which isn't available as a Tailwind utility */
+.layout-canvas {
+    background-image: radial-gradient(circle, #e2e8f0 1px, transparent 1px);
+    background-size: 24px 24px;
 }
