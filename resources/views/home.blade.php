@@ -131,7 +131,7 @@
 
                                                 {{-- Nested Slot Content Box --}}
                                                 <div
-                                                    class="bg-white rounded-2xl border-2 border-dashed border-slate-300 p-6 flex items-center justify-center transition-all duration-200 hover:border-green-500 hover:shadow-green-500/10 h-full min-h-[80px]"
+                                                    class="bg-white rounded-2xl border-2 border-dashed border-slate-300 p-6 flex items-center justify-center transition-all duration-200 hover:border-blue-500 hover:shadow-blue-500/10 h-full min-h-[80px]"
                                                 >
                                                     {{-- Editable Nested Slot Name --}}
                                                     <span
