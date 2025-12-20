@@ -48,11 +48,13 @@ export default function layoutBuilder() {
          * Row Width Presets
          */
         rowWidthPresets: {
-            'sm':  { label: 'Small (640px)',   class: 'max-w-screen-sm', value: 640 },
-            'md':  { label: 'Medium (768px)',  class: 'max-w-screen-md', value: 768 },
-            'lg':  { label: 'Large (1024px)',  class: 'max-w-screen-lg', value: 1024 },
-            'xl':  { label: 'XL (1280px)',     class: 'max-w-screen-xl', value: 1280 },
-            '2xl': { label: '2XL (1536px)',    class: 'max-w-screen-2xl', value: 1536 },
+            'sm':  { label: 'Small (384px)',   class: 'max-w-sm', value: 384 },
+            'md':  { label: 'Medium (448px)',  class: 'max-w-md', value: 448 },
+            'lg':  { label: 'Large (512px)',  class: 'max-w-lg', value: 512 },
+            'xl':  { label: 'XL (576px)',     class: 'max-w-xl', value: 576 },
+            '2xl': { label: '2XL (672px)',    class: 'max-w-2xl', value: 672 },
+            '3xl': { label: '3XL (768px)',    class: 'max-w-3xl', value: 768 },
+            '4xl': { label: '4XL (896px)',    class: 'max-w-4xl', value: 896 },
             '5xl': { label: '5XL (1024px)',    class: 'max-w-5xl', value: 1024 },
             '6xl': { label: '6XL (1152px)',    class: 'max-w-6xl', value: 1152 },
             '7xl': { label: '7XL (1280px)',    class: 'max-w-7xl', value: 1280 },
@@ -442,24 +444,109 @@ export default function layoutBuilder() {
 
         /**
          * Get total number of slots across all rows
-         * Counts nested slots inside columns
+         * Recursively counts nested slots inside columns and nested-rows
          */
         getTotalSlots() {
-            let count = 0;
-            this.layout.forEach(row => {
-                row.children.forEach(child => {
-                    if (child.type === 'column') {
-                        count += child.children.length;
-                    } else {
+            const countSlots = (items) => {
+                let count = 0;
+                items.forEach(item => {
+                    if (item.type === 'slot') {
                         count += 1;
+                    } else if (item.type === 'column' || item.type === 'nested-row') {
+                        count += countSlots(item.children);
                     }
                 });
+                return count;
+            };
+
+            let total = 0;
+            this.layout.forEach(row => {
+                total += countSlots(row.children);
             });
-            return count;
+            return total;
         },
 
         canDelete() {
             return this.getTotalSlots() > 1;
+        },
+
+        // ==============================================
+        // OUTER ROW OPERATIONS
+        // ==============================================
+
+        /**
+         * Add a new row above or below the specified row
+         * Used by outer row container buttons
+         *
+         * @param {number} rowIndex - Index of the current row
+         * @param {string} position - 'above' or 'below'
+         */
+        addRowAt(rowIndex, position) {
+            const newRow = {
+                id: generateId(),
+                type: 'row',
+                rowWidthMode: 'boxed',
+                maxWidth: '7xl',
+                fixedWidth: null,
+                children: [{
+                    id: generateId(),
+                    type: 'slot',
+                    name: 'New Slot',
+                    component: null,
+                    width: 12,
+                    widthMode: 'fluid',
+                    fixedWidth: null
+                }]
+            };
+
+            const insertIdx = position === 'above' ? rowIndex : rowIndex + 1;
+            this.layout.splice(insertIdx, 0, newRow);
+            this.saveHistory();
+        },
+
+        /**
+         * Add a new slot at the far left or far right of a row
+         * Used by outer row container buttons
+         *
+         * @param {number} rowIndex - Index of the row
+         * @param {string} position - 'left' or 'right'
+         */
+        addOuterSlot(rowIndex, position) {
+            const row = this.layout[rowIndex];
+            const newSlot = {
+                id: generateId(),
+                type: 'slot',
+                name: 'New Slot',
+                component: null,
+                width: null,
+                widthMode: 'fluid',
+                fixedWidth: null
+            };
+
+            // Redistribute widths for all fluid slots
+            const fluidSlots = row.children.filter(s => s.widthMode !== 'fixed');
+            const newFluidCount = fluidSlots.length + 1;
+            const baseWidth = Math.floor(12 / newFluidCount);
+            const remainder = 12 - (baseWidth * newFluidCount);
+
+            let fluidIdx = 0;
+            row.children.forEach((slot) => {
+                if (slot.widthMode !== 'fixed') {
+                    slot.width = baseWidth + (fluidIdx < remainder ? 1 : 0);
+                    fluidIdx++;
+                }
+            });
+
+            newSlot.width = baseWidth;
+
+            if (position === 'left') {
+                row.children.unshift(newSlot);
+            } else {
+                row.children.push(newSlot);
+            }
+
+            this.normalizeRowWidths(rowIndex);
+            this.saveHistory();
         },
 
         // ==============================================
@@ -576,11 +663,12 @@ export default function layoutBuilder() {
 
         /**
          * Add a slot within a column (nested)
+         * Supports both vertical (top/bottom) and horizontal (left/right) additions
          *
          * @param {number} rowIndex - Row containing the column
          * @param {number} columnIndex - Index of the column in the row
-         * @param {number} nestedIndex - Index of the slot we're adding relative to
-         * @param {string} direction - 'top' or 'bottom'
+         * @param {number} nestedIndex - Index of the item we're adding relative to
+         * @param {string} direction - 'top', 'bottom', 'left', or 'right'
          */
         addNestedSlot(rowIndex, columnIndex, nestedIndex, direction) {
             const column = this.layout[rowIndex].children[columnIndex];
@@ -596,14 +684,67 @@ export default function layoutBuilder() {
                 fixedWidth: null
             };
 
-            const insertIdx = direction === 'top' ? nestedIndex : nestedIndex + 1;
-            column.children.splice(insertIdx, 0, newSlot);
+            if (direction === 'top' || direction === 'bottom') {
+                // Vertical: add slot above/below in the column
+                const insertIdx = direction === 'top' ? nestedIndex : nestedIndex + 1;
+                column.children.splice(insertIdx, 0, newSlot);
+            } else {
+                // Horizontal: left or right - create nested-row
+                const currentItem = column.children[nestedIndex];
+
+                if (currentItem.type === 'nested-row') {
+                    // Already a nested-row, add to its children
+                    newSlot.width = 6; // Default to half width
+                    const insertIdx = direction === 'left' ? 0 : currentItem.children.length;
+                    currentItem.children.splice(insertIdx, 0, newSlot);
+                    this.normalizeNestedRowWidths(currentItem);
+                } else {
+                    // Convert slot to nested-row
+                    const originalSlot = { ...currentItem };
+                    originalSlot.width = 6;
+                    newSlot.width = 6;
+
+                    const nestedRow = {
+                        id: generateId(),
+                        type: 'nested-row',
+                        children: direction === 'left'
+                            ? [newSlot, originalSlot]
+                            : [originalSlot, newSlot]
+                    };
+
+                    column.children[nestedIndex] = nestedRow;
+                }
+            }
 
             this.saveHistory();
         },
 
         /**
-         * Delete a nested slot from within a column
+         * Normalize widths within a nested-row to sum to 12
+         */
+        normalizeNestedRowWidths(nestedRow) {
+            const fluidSlots = nestedRow.children.filter(s => s.widthMode !== 'fixed');
+            if (fluidSlots.length === 0) return;
+
+            const widthPerSlot = Math.floor(12 / fluidSlots.length);
+            const remainder = 12 - (widthPerSlot * fluidSlots.length);
+
+            fluidSlots.forEach((slot, idx) => {
+                slot.width = widthPerSlot + (idx < remainder ? 1 : 0);
+            });
+        },
+
+        /**
+         * Get the col-span class for a slot within a nested-row
+         */
+        getNestedRowSlotClass(nestedRow, slotIndex) {
+            const item = nestedRow.children[slotIndex];
+            const width = item.width || Math.floor(12 / nestedRow.children.length);
+            return `col-span-${width}`;
+        },
+
+        /**
+         * Delete a nested item (slot or nested-row) from within a column
          */
         deleteNestedSlot(rowIndex, columnIndex, nestedIndex) {
             if (!this.canDelete()) return;
@@ -615,13 +756,17 @@ export default function layoutBuilder() {
 
             column.children.splice(nestedIndex, 1);
 
-            // If only one slot remains in column, convert back to regular slot
+            // If only one item remains in column, convert back appropriately
             if (column.children.length === 1) {
-                const remainingSlot = column.children[0];
-                remainingSlot.width = column.width;
-                remainingSlot.widthMode = column.widthMode;
-                remainingSlot.fixedWidth = column.fixedWidth;
-                row.children[columnIndex] = remainingSlot;
+                const remainingItem = column.children[0];
+                if (remainingItem.type === 'slot') {
+                    // Convert back to regular slot
+                    remainingItem.width = column.width;
+                    remainingItem.widthMode = column.widthMode;
+                    remainingItem.fixedWidth = column.fixedWidth;
+                    row.children[columnIndex] = remainingItem;
+                }
+                // If it's a nested-row with one item, we keep the column structure
             }
 
             // If column is empty, remove it
@@ -648,6 +793,235 @@ export default function layoutBuilder() {
             }
 
             this.saveHistory();
+        },
+
+        /**
+         * Add a slot within a nested-row (horizontal group inside a column)
+         * Consistent behavior: top/bottom creates vertical stack within the nested-row position
+         *
+         * @param {number} rowIndex - Row containing the column
+         * @param {number} columnIndex - Index of the column
+         * @param {number} nestedRowIndex - Index of the nested-row within the column
+         * @param {number} slotIndex - Index of the slot within the nested-row
+         * @param {string} direction - 'left', 'right', 'top', or 'bottom'
+         */
+        addNestedRowSlot(rowIndex, columnIndex, nestedRowIndex, slotIndex, direction) {
+            const column = this.layout[rowIndex].children[columnIndex];
+            if (column.type !== 'column') return;
+
+            const nestedRow = column.children[nestedRowIndex];
+            if (nestedRow.type !== 'nested-row') return;
+
+            const newSlot = {
+                id: generateId(),
+                type: 'slot',
+                name: 'New Slot',
+                component: null,
+                width: null,
+                widthMode: 'fluid',
+                fixedWidth: null
+            };
+
+            if (direction === 'left' || direction === 'right') {
+                // Add horizontally within the nested-row
+                const insertIdx = direction === 'left' ? slotIndex : slotIndex + 1;
+                nestedRow.children.splice(insertIdx, 0, newSlot);
+                this.normalizeNestedRowWidths(nestedRow);
+            } else {
+                // Vertical: convert slot to column within the nested-row (consistent behavior)
+                const currentItem = nestedRow.children[slotIndex];
+
+                if (currentItem.type === 'column') {
+                    // Already a column, add to its children
+                    const insertIdx = direction === 'top' ? 0 : currentItem.children.length;
+                    currentItem.children.splice(insertIdx, 0, newSlot);
+                } else {
+                    // Convert slot to column within the nested-row
+                    const originalSlot = { ...currentItem };
+                    const nestedColumn = {
+                        id: generateId(),
+                        type: 'column',
+                        width: currentItem.width,
+                        widthMode: currentItem.widthMode || 'fluid',
+                        fixedWidth: currentItem.fixedWidth,
+                        children: direction === 'top'
+                            ? [newSlot, originalSlot]
+                            : [originalSlot, newSlot]
+                    };
+
+                    // Clear width from original slot (column handles it now)
+                    originalSlot.width = null;
+                    originalSlot.widthMode = 'fluid';
+                    originalSlot.fixedWidth = null;
+
+                    nestedRow.children[slotIndex] = nestedColumn;
+                }
+            }
+
+            this.saveHistory();
+        },
+
+        /**
+         * Delete an item (slot or column) from within a nested-row
+         */
+        deleteNestedRowSlot(rowIndex, columnIndex, nestedRowIndex, itemIndex) {
+            if (!this.canDelete()) return;
+
+            const column = this.layout[rowIndex].children[columnIndex];
+            if (column.type !== 'column') return;
+
+            const nestedRow = column.children[nestedRowIndex];
+            if (nestedRow.type !== 'nested-row') return;
+
+            nestedRow.children.splice(itemIndex, 1);
+
+            // If only one item remains in nested-row, convert back
+            if (nestedRow.children.length === 1) {
+                column.children[nestedRowIndex] = nestedRow.children[0];
+            }
+
+            // If nested-row is empty, remove it
+            if (nestedRow.children.length === 0) {
+                column.children.splice(nestedRowIndex, 1);
+
+                // Check if column should be converted back to slot
+                if (column.children.length === 1 && column.children[0].type === 'slot') {
+                    const row = this.layout[rowIndex];
+                    const remainingSlot = column.children[0];
+                    remainingSlot.width = column.width;
+                    remainingSlot.widthMode = column.widthMode;
+                    remainingSlot.fixedWidth = column.fixedWidth;
+                    row.children[columnIndex] = remainingSlot;
+                }
+            } else {
+                this.normalizeNestedRowWidths(nestedRow);
+            }
+
+            this.saveHistory();
+        },
+
+        /**
+         * Update a slot name within a nested-row
+         */
+        updateNestedRowSlotName(rowIndex, columnIndex, nestedRowIndex, slotIndex, newName) {
+            const trimmed = newName.trim();
+            if (trimmed) {
+                const column = this.layout[rowIndex].children[columnIndex];
+                if (column.type === 'column') {
+                    const nestedRow = column.children[nestedRowIndex];
+                    if (nestedRow.type === 'nested-row' && nestedRow.children[slotIndex]) {
+                        nestedRow.children[slotIndex].name = trimmed;
+                        this.saveHistory();
+                    }
+                }
+            }
+        },
+
+        // ==============================================
+        // NESTED-ROW COLUMN OPERATIONS
+        // (For columns within nested-rows)
+        // ==============================================
+
+        /**
+         * Add a slot within a column that's inside a nested-row
+         */
+        addNestedRowColumnSlot(rowIndex, columnIndex, nestedRowIndex, nrColumnIndex, slotIndex, direction) {
+            const column = this.layout[rowIndex].children[columnIndex];
+            if (column.type !== 'column') return;
+
+            const nestedRow = column.children[nestedRowIndex];
+            if (nestedRow.type !== 'nested-row') return;
+
+            const nrColumn = nestedRow.children[nrColumnIndex];
+            if (nrColumn.type !== 'column') return;
+
+            const newSlot = {
+                id: generateId(),
+                type: 'slot',
+                name: 'New Slot',
+                component: null,
+                width: null,
+                widthMode: 'fluid',
+                fixedWidth: null
+            };
+
+            if (direction === 'top' || direction === 'bottom') {
+                // Add vertically within this column
+                const insertIdx = direction === 'top' ? slotIndex : slotIndex + 1;
+                nrColumn.children.splice(insertIdx, 0, newSlot);
+            } else {
+                // Add horizontally - add new slot to parent nested-row
+                const insertIdx = direction === 'left' ? nrColumnIndex : nrColumnIndex + 1;
+                nestedRow.children.splice(insertIdx, 0, newSlot);
+                this.normalizeNestedRowWidths(nestedRow);
+            }
+
+            this.saveHistory();
+        },
+
+        /**
+         * Delete a slot from a column within a nested-row
+         */
+        deleteNestedRowColumnSlot(rowIndex, columnIndex, nestedRowIndex, nrColumnIndex, slotIndex) {
+            if (!this.canDelete()) return;
+
+            const column = this.layout[rowIndex].children[columnIndex];
+            if (column.type !== 'column') return;
+
+            const nestedRow = column.children[nestedRowIndex];
+            if (nestedRow.type !== 'nested-row') return;
+
+            const nrColumn = nestedRow.children[nrColumnIndex];
+            if (nrColumn.type !== 'column') return;
+
+            nrColumn.children.splice(slotIndex, 1);
+
+            // If only one slot remains in column, convert back to regular slot
+            if (nrColumn.children.length === 1) {
+                const remainingSlot = nrColumn.children[0];
+                remainingSlot.width = nrColumn.width;
+                remainingSlot.widthMode = nrColumn.widthMode;
+                remainingSlot.fixedWidth = nrColumn.fixedWidth;
+                nestedRow.children[nrColumnIndex] = remainingSlot;
+            }
+
+            // If column is empty, remove it from nested-row
+            if (nrColumn.children.length === 0) {
+                nestedRow.children.splice(nrColumnIndex, 1);
+                this.normalizeNestedRowWidths(nestedRow);
+
+                // If nested-row has only one item, convert back
+                if (nestedRow.children.length === 1) {
+                    column.children[nestedRowIndex] = nestedRow.children[0];
+                }
+
+                // If nested-row is empty, remove it
+                if (nestedRow.children.length === 0) {
+                    column.children.splice(nestedRowIndex, 1);
+                }
+            }
+
+            this.saveHistory();
+        },
+
+        /**
+         * Update a slot name within a column that's inside a nested-row
+         */
+        updateNestedRowColumnSlotName(rowIndex, columnIndex, nestedRowIndex, nrColumnIndex, slotIndex, newName) {
+            const trimmed = newName.trim();
+            if (trimmed) {
+                const column = this.layout[rowIndex].children[columnIndex];
+                if (column.type === 'column') {
+                    const nestedRow = column.children[nestedRowIndex];
+                    if (nestedRow.type === 'nested-row') {
+                        const nrColumn = nestedRow.children[nrColumnIndex];
+                        if (nrColumn.type === 'column' && nrColumn.children[slotIndex]) {
+                            nrColumn.children[slotIndex].name = trimmed;
+                            this.saveHistory();
+                        }
+                    }
+                }
+            }
         },
 
         /**
