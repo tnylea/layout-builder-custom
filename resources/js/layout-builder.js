@@ -7,7 +7,6 @@
 
 /**
  * Generate unique IDs for slots and rows
- * Uses a random string to ensure each element has a unique identifier
  */
 function generateId() {
     return 'slot_' + Math.random().toString(36).substring(2, 11);
@@ -15,25 +14,23 @@ function generateId() {
 
 /**
  * Main Layout Builder Component
- * Returns an object with all the reactive data and methods
  */
 export default function layoutBuilder() {
     return {
         // ==============================================
-        // STATE (Reactive Data)
+        // STATE
         // ==============================================
 
-        /**
-         * The main layout array - this is the core data structure
-         * Structure: Array of rows, each row has children (slots)
-         */
         layout: [],
-
-        /**
-         * History for undo/redo (we'll wire this up in Iteration 3)
-         */
         history: [],
         historyIndex: -1,
+
+        /**
+         * Toast notification state
+         * Used to show feedback messages to the user
+         */
+        showToast: false,
+        toastMessage: '',
 
         // ==============================================
         // INITIALIZATION
@@ -45,11 +42,28 @@ export default function layoutBuilder() {
         init() {
             this.layout = this.getDefaultLayout();
             this.saveHistory();
+
+            // Set up keyboard shortcuts
+            // We use document.addEventListener because we want these
+            // to work anywhere on the page, not just when focused on a specific element
+            document.addEventListener('keydown', (e) => {
+                // Check for Cmd (Mac) or Ctrl (Windows/Linux)
+                if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+                    e.preventDefault(); // Prevent browser's default undo
+
+                    if (e.shiftKey) {
+                        // Cmd+Shift+Z = Redo
+                        this.redo();
+                    } else {
+                        // Cmd+Z = Undo
+                        this.undo();
+                    }
+                }
+            });
         },
 
         /**
          * Creates the default layout structure
-         * Three rows: Header, Content, Footer
          */
         getDefaultLayout() {
             return [
@@ -111,21 +125,130 @@ export default function layoutBuilder() {
         },
 
         // ==============================================
-        // HISTORY MANAGEMENT
+        // HISTORY MANAGEMENT (Undo/Redo)
         // ==============================================
 
         /**
-         * Saves the current layout state to history
+         * How Undo/Redo Works:
+         *
+         * We maintain a "history stack" - an array of layout snapshots.
+         * historyIndex points to the current position in the stack.
+         *
+         * Example:
+         *   history = [state0, state1, state2, state3]
+         *   historyIndex = 3 (pointing to state3, the current state)
+         *
+         * When user does Undo:
+         *   historyIndex = 2 (now pointing to state2)
+         *   layout = state2
+         *
+         * When user does Redo:
+         *   historyIndex = 3 (back to state3)
+         *   layout = state3
+         *
+         * When user makes a new change while at historyIndex=2:
+         *   history = [state0, state1, state2, newState]  (state3 is discarded)
+         *   historyIndex = 3
+         */
+
+        /**
+         * Save current state to history
          */
         saveHistory() {
+            // If we're not at the end of history, remove "future" states
+            // This happens when user undoes, then makes a new change
             this.history = this.history.slice(0, this.historyIndex + 1);
+
+            // Deep clone the layout (JSON parse/stringify is a simple way to deep clone)
             this.history.push(JSON.parse(JSON.stringify(this.layout)));
             this.historyIndex++;
 
+            // Limit history to 50 entries to prevent memory issues
             if (this.history.length > 50) {
                 this.history.shift();
                 this.historyIndex--;
             }
+        },
+
+        /**
+         * Undo the last action
+         */
+        undo() {
+            if (this.canUndo()) {
+                this.historyIndex--;
+                // Deep clone from history to avoid reference issues
+                this.layout = JSON.parse(JSON.stringify(this.history[this.historyIndex]));
+            }
+        },
+
+        /**
+         * Redo the last undone action
+         */
+        redo() {
+            if (this.canRedo()) {
+                this.historyIndex++;
+                this.layout = JSON.parse(JSON.stringify(this.history[this.historyIndex]));
+            }
+        },
+
+        /**
+         * Check if undo is available
+         * We can undo if we're not at the beginning of history
+         */
+        canUndo() {
+            return this.historyIndex > 0;
+        },
+
+        /**
+         * Check if redo is available
+         * We can redo if we're not at the end of history
+         */
+        canRedo() {
+            return this.historyIndex < this.history.length - 1;
+        },
+
+        // ==============================================
+        // ACTIONS (Reset, Export)
+        // ==============================================
+
+        /**
+         * Reset layout to default state
+         */
+        resetLayout() {
+            this.layout = this.getDefaultLayout();
+            this.saveHistory();
+            this.toast('Layout reset');
+        },
+
+        /**
+         * Copy layout JSON to clipboard
+         * Uses the modern Clipboard API
+         */
+        copyToClipboard() {
+            // Format the JSON with 2-space indentation for readability
+            const json = JSON.stringify(this.layout, null, 2);
+
+            // navigator.clipboard.writeText() returns a Promise
+            navigator.clipboard.writeText(json).then(() => {
+                this.toast('JSON copied to clipboard!');
+            }).catch((err) => {
+                this.toast('Failed to copy');
+                console.error('Clipboard error:', err);
+            });
+        },
+
+        /**
+         * Show a toast notification
+         * @param {string} message - Message to display
+         */
+        toast(message) {
+            this.toastMessage = message;
+            this.showToast = true;
+
+            // Auto-hide after 2 seconds
+            setTimeout(() => {
+                this.showToast = false;
+            }, 2000);
         },
 
         // ==============================================
@@ -134,13 +257,11 @@ export default function layoutBuilder() {
 
         /**
          * Get total number of slots across all rows
-         * Used for display in toolbar and for delete validation
          */
         getTotalSlots() {
             let count = 0;
             this.layout.forEach(row => {
                 row.children.forEach(child => {
-                    // In the future, columns can contain nested slots
                     if (child.type === 'column') {
                         count += child.children.length;
                     } else {
@@ -153,7 +274,6 @@ export default function layoutBuilder() {
 
         /**
          * Check if deletion is allowed
-         * We must always have at least one slot in the layout
          */
         canDelete() {
             return this.getTotalSlots() > 1;
@@ -165,75 +285,36 @@ export default function layoutBuilder() {
 
         /**
          * Add a new slot in the specified direction
-         *
-         * This is one of the most important methods in the layout builder.
-         * It handles 4 different directions and adjusts widths accordingly.
-         *
-         * @param {number} rowIndex - Which row the source slot is in
-         * @param {number} slotIndex - Which slot we're adding relative to
-         * @param {string} direction - 'top' | 'bottom' | 'left' | 'right'
-         *
-         * How it works:
-         * - LEFT/RIGHT: Adds a new slot in the same row, redistributes column widths
-         * - TOP/BOTTOM: Adds a new row above/below the current row
          */
         addSlot(rowIndex, slotIndex, direction) {
-            // Create a new slot with default values
             const newSlot = {
                 id: generateId(),
                 type: 'slot',
                 name: 'New Slot',
                 component: null,
-                width: null,        // Will be calculated
+                width: null,
                 widthMode: 'fluid',
                 fixedWidth: null
             };
 
             if (direction === 'left' || direction === 'right') {
-                // ==========================================
-                // HORIZONTAL: Add slot to the same row
-                // ==========================================
                 const row = this.layout[rowIndex];
-
-                // Calculate insert position
-                // 'left' = insert at current index (pushes current slot right)
-                // 'right' = insert after current index
                 const insertIdx = direction === 'left' ? slotIndex : slotIndex + 1;
 
-                // IMPORTANT: Redistribute widths among all slots
-                // If we have 1 slot (12 cols) and add another, each gets 6 cols
-                // If we have 2 slots (6 each) and add another, each gets 4 cols
                 const newSlotCount = row.children.length + 1;
                 const baseWidth = Math.floor(12 / newSlotCount);
                 const remainder = 12 - (baseWidth * newSlotCount);
 
-                // Update existing slot widths
                 row.children.forEach((slot, idx) => {
-                    // Give extra column to first slots if there's a remainder
-                    // e.g., 3 slots: 12/3 = 4, but we might need 4+4+4 = 12 ✓
-                    // e.g., 5 slots: 12/5 = 2.4 → 2, remainder = 2, so first 2 get 3
                     slot.width = baseWidth + (idx < remainder ? 1 : 0);
                 });
 
-                // New slot gets base width
                 newSlot.width = baseWidth;
-
-                // Insert the new slot at the calculated position
-                // splice(index, deleteCount, ...items) - inserts items at index
                 row.children.splice(insertIdx, 0, newSlot);
-
-                // Ensure widths sum to exactly 12
                 this.normalizeRowWidths(rowIndex);
 
             } else {
-                // ==========================================
-                // VERTICAL: Add a new row above or below
-                // ==========================================
-
-                // New slot in new row gets full width
                 newSlot.width = 12;
-
-                // Create a new row with the slot
                 const newRow = {
                     id: generateId(),
                     type: 'row',
@@ -243,16 +324,10 @@ export default function layoutBuilder() {
                     children: [newSlot]
                 };
 
-                // Calculate insert position
-                // 'top' = insert at current row index (pushes current row down)
-                // 'bottom' = insert after current row
                 const insertIdx = direction === 'top' ? rowIndex : rowIndex + 1;
-
-                // Insert the new row
                 this.layout.splice(insertIdx, 0, newRow);
             }
 
-            // Save to history for undo support
             this.saveHistory();
         },
 
@@ -262,49 +337,28 @@ export default function layoutBuilder() {
 
         /**
          * Delete a slot from the layout
-         *
-         * @param {number} rowIndex - Which row the slot is in
-         * @param {number} slotIndex - Which slot to delete
-         *
-         * How it works:
-         * 1. Check if we can delete (must have > 1 slot)
-         * 2. Remember the deleted slot's width
-         * 3. Remove the slot from the row
-         * 4. If row is empty, remove the entire row
-         * 5. Otherwise, redistribute the deleted width to remaining slots
          */
         deleteSlot(rowIndex, slotIndex) {
-            // Safety check - never delete the last slot
             if (!this.canDelete()) return;
 
             const row = this.layout[rowIndex];
-
-            // Get the width of the slot being deleted
-            // Default to even distribution if width isn't set
             const deletedWidth = row.children[slotIndex].width ||
                 Math.floor(12 / row.children.length);
 
-            // Remove the slot
             row.children.splice(slotIndex, 1);
 
-            // Check if row is now empty
             if (row.children.length === 0) {
-                // Remove the entire row
                 this.layout.splice(rowIndex, 1);
             } else {
-                // Redistribute the deleted slot's width to remaining slots
-                // This ensures the row still uses all 12 columns
                 const widthPerSlot = Math.floor(deletedWidth / row.children.length);
                 const remainder = deletedWidth - (widthPerSlot * row.children.length);
 
                 row.children.forEach((slot, idx) => {
                     const currentWidth = slot.width ||
                         Math.floor(12 / (row.children.length + 1));
-                    // Add the redistributed width, plus 1 for first 'remainder' slots
                     slot.width = currentWidth + widthPerSlot + (idx < remainder ? 1 : 0);
                 });
 
-                // Ensure total is exactly 12
                 const total = row.children.reduce((sum, s) => sum + s.width, 0);
                 if (total !== 12) {
                     row.children[0].width += (12 - total);
@@ -320,22 +374,14 @@ export default function layoutBuilder() {
 
         /**
          * Ensure all fluid slot widths in a row sum to exactly 12
-         *
-         * The 12-column grid requires widths to sum to 12.
-         * After adding/removing slots, rounding errors can cause
-         * the total to be 11 or 13. This fixes that.
          */
         normalizeRowWidths(rowIndex) {
             const row = this.layout[rowIndex];
-
-            // Only normalize fluid (non-fixed) slots
             const fluidSlots = row.children.filter(s => s.widthMode !== 'fixed');
             if (fluidSlots.length === 0) return;
 
-            // Calculate current total
             const totalFluidWidth = fluidSlots.reduce((sum, s) => sum + (s.width || 1), 0);
 
-            // If not 12, adjust the last fluid slot
             if (totalFluidWidth !== 12) {
                 const diff = 12 - totalFluidWidth;
                 const lastFluidSlot = fluidSlots[fluidSlots.length - 1];
