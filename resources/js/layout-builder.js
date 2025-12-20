@@ -1,20 +1,11 @@
 /**
  * Layout Builder - Alpine.js Component
- *
- * This file contains all the logic for the layout builder.
- * It's registered as an Alpine.js component and used with x-data="layoutBuilder()"
  */
 
-/**
- * Generate unique IDs for slots and rows
- */
 function generateId() {
     return 'slot_' + Math.random().toString(36).substring(2, 11);
 }
 
-/**
- * Main Layout Builder Component
- */
 export default function layoutBuilder() {
     return {
         // ==============================================
@@ -24,47 +15,51 @@ export default function layoutBuilder() {
         layout: [],
         history: [],
         historyIndex: -1,
-
-        /**
-         * Toast notification state
-         * Used to show feedback messages to the user
-         */
         showToast: false,
         toastMessage: '',
+
+        /**
+         * Row Width Presets
+         *
+         * Maps preset keys to Tailwind max-width classes and pixel values.
+         * These are the "boxed" width options users can choose from.
+         *
+         * Why use presets?
+         * - Consistent widths across the app
+         * - Maps directly to Tailwind classes (no custom CSS needed)
+         * - Easy to display human-readable labels
+         */
+        rowWidthPresets: {
+            'sm':  { label: 'Small (640px)',   class: 'max-w-screen-sm', value: 640 },
+            'md':  { label: 'Medium (768px)',  class: 'max-w-screen-md', value: 768 },
+            'lg':  { label: 'Large (1024px)',  class: 'max-w-screen-lg', value: 1024 },
+            'xl':  { label: 'XL (1280px)',     class: 'max-w-screen-xl', value: 1280 },
+            '2xl': { label: '2XL (1536px)',    class: 'max-w-screen-2xl', value: 1536 },
+            '5xl': { label: '5XL (1024px)',    class: 'max-w-5xl', value: 1024 },
+            '6xl': { label: '6XL (1152px)',    class: 'max-w-6xl', value: 1152 },
+            '7xl': { label: '7XL (1280px)',    class: 'max-w-7xl', value: 1280 },
+        },
 
         // ==============================================
         // INITIALIZATION
         // ==============================================
 
-        /**
-         * Called automatically when Alpine initializes the component
-         */
         init() {
             this.layout = this.getDefaultLayout();
             this.saveHistory();
 
-            // Set up keyboard shortcuts
-            // We use document.addEventListener because we want these
-            // to work anywhere on the page, not just when focused on a specific element
             document.addEventListener('keydown', (e) => {
-                // Check for Cmd (Mac) or Ctrl (Windows/Linux)
                 if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
-                    e.preventDefault(); // Prevent browser's default undo
-
+                    e.preventDefault();
                     if (e.shiftKey) {
-                        // Cmd+Shift+Z = Redo
                         this.redo();
                     } else {
-                        // Cmd+Z = Undo
                         this.undo();
                     }
                 }
             });
         },
 
-        /**
-         * Creates the default layout structure
-         */
         getDefaultLayout() {
             return [
                 {
@@ -74,15 +69,7 @@ export default function layoutBuilder() {
                     maxWidth: '7xl',
                     fixedWidth: null,
                     children: [
-                        {
-                            id: generateId(),
-                            type: 'slot',
-                            name: 'Header',
-                            component: null,
-                            width: 12,
-                            widthMode: 'fluid',
-                            fixedWidth: null
-                        }
+                        { id: generateId(), type: 'slot', name: 'Header', component: null, width: 12, widthMode: 'fluid', fixedWidth: null }
                     ]
                 },
                 {
@@ -92,15 +79,7 @@ export default function layoutBuilder() {
                     maxWidth: '7xl',
                     fixedWidth: null,
                     children: [
-                        {
-                            id: generateId(),
-                            type: 'slot',
-                            name: 'Content',
-                            component: null,
-                            width: 12,
-                            widthMode: 'fluid',
-                            fixedWidth: null
-                        }
+                        { id: generateId(), type: 'slot', name: 'Content', component: null, width: 12, widthMode: 'fluid', fixedWidth: null }
                     ]
                 },
                 {
@@ -110,80 +89,34 @@ export default function layoutBuilder() {
                     maxWidth: '7xl',
                     fixedWidth: null,
                     children: [
-                        {
-                            id: generateId(),
-                            type: 'slot',
-                            name: 'Footer',
-                            component: null,
-                            width: 12,
-                            widthMode: 'fluid',
-                            fixedWidth: null
-                        }
+                        { id: generateId(), type: 'slot', name: 'Footer', component: null, width: 12, widthMode: 'fluid', fixedWidth: null }
                     ]
                 }
             ];
         },
 
         // ==============================================
-        // HISTORY MANAGEMENT (Undo/Redo)
+        // HISTORY MANAGEMENT
         // ==============================================
 
-        /**
-         * How Undo/Redo Works:
-         *
-         * We maintain a "history stack" - an array of layout snapshots.
-         * historyIndex points to the current position in the stack.
-         *
-         * Example:
-         *   history = [state0, state1, state2, state3]
-         *   historyIndex = 3 (pointing to state3, the current state)
-         *
-         * When user does Undo:
-         *   historyIndex = 2 (now pointing to state2)
-         *   layout = state2
-         *
-         * When user does Redo:
-         *   historyIndex = 3 (back to state3)
-         *   layout = state3
-         *
-         * When user makes a new change while at historyIndex=2:
-         *   history = [state0, state1, state2, newState]  (state3 is discarded)
-         *   historyIndex = 3
-         */
-
-        /**
-         * Save current state to history
-         */
         saveHistory() {
-            // If we're not at the end of history, remove "future" states
-            // This happens when user undoes, then makes a new change
             this.history = this.history.slice(0, this.historyIndex + 1);
-
-            // Deep clone the layout (JSON parse/stringify is a simple way to deep clone)
             this.history.push(JSON.parse(JSON.stringify(this.layout)));
             this.historyIndex++;
 
-            // Limit history to 50 entries to prevent memory issues
             if (this.history.length > 50) {
                 this.history.shift();
                 this.historyIndex--;
             }
         },
 
-        /**
-         * Undo the last action
-         */
         undo() {
             if (this.canUndo()) {
                 this.historyIndex--;
-                // Deep clone from history to avoid reference issues
                 this.layout = JSON.parse(JSON.stringify(this.history[this.historyIndex]));
             }
         },
 
-        /**
-         * Redo the last undone action
-         */
         redo() {
             if (this.canRedo()) {
                 this.historyIndex++;
@@ -191,44 +124,140 @@ export default function layoutBuilder() {
             }
         },
 
-        /**
-         * Check if undo is available
-         * We can undo if we're not at the beginning of history
-         */
         canUndo() {
             return this.historyIndex > 0;
         },
 
-        /**
-         * Check if redo is available
-         * We can redo if we're not at the end of history
-         */
         canRedo() {
             return this.historyIndex < this.history.length - 1;
         },
 
         // ==============================================
-        // ACTIONS (Reset, Export)
+        // ROW WIDTH CONTROL
         // ==============================================
 
         /**
-         * Reset layout to default state
+         * Get classes for the outer row wrapper (flex container)
+         *
+         * The wrapper is always full-width flex. Its job is to:
+         * - Center the content (justify-center) for boxed/fixed modes
+         * - Let content stretch full width for full mode
+         *
+         * @param {object} row - The row object
+         * @returns {string} Space-separated CSS classes
          */
+        getRowWrapperClass(row) {
+            const classes = ['flex', 'w-full'];
+
+            // Center content for boxed and fixed modes
+            if (row.rowWidthMode === 'boxed' || row.rowWidthMode === 'fixed') {
+                classes.push('justify-center');
+            }
+
+            return classes.join(' ');
+        },
+
+        /**
+         * Get classes for the inner row content (grid container)
+         *
+         * This is where the 12-column grid lives.
+         * Width is controlled by:
+         * - 'full': No max-width constraint
+         * - 'boxed': Tailwind max-width class from preset
+         * - 'fixed': Inline style (see getRowContentStyle)
+         *
+         * @param {object} row - The row object
+         * @returns {string} Space-separated CSS classes
+         */
+        getRowContentClass(row) {
+            const classes = ['grid', 'grid-cols-12', 'gap-10', 'w-full'];
+
+            // Add max-width class for boxed mode
+            if (row.rowWidthMode === 'boxed' && row.maxWidth) {
+                const preset = this.rowWidthPresets[row.maxWidth];
+                if (preset) {
+                    classes.push(preset.class);
+                }
+            }
+
+            return classes.join(' ');
+        },
+
+        /**
+         * Get inline styles for the row content
+         *
+         * Used for fixed pixel widths since we can't use
+         * Tailwind classes for arbitrary values like "max-width: 847px"
+         *
+         * @param {object} row - The row object
+         * @returns {string} Inline style string or empty
+         */
+        getRowContentStyle(row) {
+            if (row.rowWidthMode === 'fixed' && row.fixedWidth) {
+                return `max-width: ${row.fixedWidth}px;`;
+            }
+            return '';
+        },
+
+        /**
+         * Set the row width mode
+         *
+         * @param {number} rowIndex - Index of the row to modify
+         * @param {string} mode - 'full' | 'boxed' | 'fixed'
+         * @param {string|number|null} value - Preset key for boxed, pixels for fixed
+         */
+        setRowWidthMode(rowIndex, mode, value = null) {
+            const row = this.layout[rowIndex];
+
+            row.rowWidthMode = mode;
+
+            if (mode === 'full') {
+                // Full width - no constraints
+                row.maxWidth = null;
+                row.fixedWidth = null;
+            } else if (mode === 'boxed') {
+                // Boxed - use preset key (e.g., '7xl')
+                row.maxWidth = value || '7xl';
+                row.fixedWidth = null;
+            } else if (mode === 'fixed') {
+                // Fixed - use pixel value
+                row.maxWidth = null;
+                row.fixedWidth = parseInt(value) || 960;
+            }
+
+            this.saveHistory();
+        },
+
+        /**
+         * Get human-readable display text for row width
+         *
+         * @param {object} row - The row object
+         * @returns {string} Display text like "Full Width" or "7xl"
+         */
+        getRowWidthDisplay(row) {
+            if (row.rowWidthMode === 'full') {
+                return 'Full Width';
+            } else if (row.rowWidthMode === 'boxed' && row.maxWidth) {
+                const preset = this.rowWidthPresets[row.maxWidth];
+                return preset ? preset.label : row.maxWidth;
+            } else if (row.rowWidthMode === 'fixed' && row.fixedWidth) {
+                return `${row.fixedWidth}px`;
+            }
+            return 'Full Width';
+        },
+
+        // ==============================================
+        // ACTIONS
+        // ==============================================
+
         resetLayout() {
             this.layout = this.getDefaultLayout();
             this.saveHistory();
             this.toast('Layout reset');
         },
 
-        /**
-         * Copy layout JSON to clipboard
-         * Uses the modern Clipboard API
-         */
         copyToClipboard() {
-            // Format the JSON with 2-space indentation for readability
             const json = JSON.stringify(this.layout, null, 2);
-
-            // navigator.clipboard.writeText() returns a Promise
             navigator.clipboard.writeText(json).then(() => {
                 this.toast('JSON copied to clipboard!');
             }).catch((err) => {
@@ -237,15 +266,9 @@ export default function layoutBuilder() {
             });
         },
 
-        /**
-         * Show a toast notification
-         * @param {string} message - Message to display
-         */
         toast(message) {
             this.toastMessage = message;
             this.showToast = true;
-
-            // Auto-hide after 2 seconds
             setTimeout(() => {
                 this.showToast = false;
             }, 2000);
@@ -255,9 +278,6 @@ export default function layoutBuilder() {
         // SLOT COUNTING & VALIDATION
         // ==============================================
 
-        /**
-         * Get total number of slots across all rows
-         */
         getTotalSlots() {
             let count = 0;
             this.layout.forEach(row => {
@@ -272,9 +292,6 @@ export default function layoutBuilder() {
             return count;
         },
 
-        /**
-         * Check if deletion is allowed
-         */
         canDelete() {
             return this.getTotalSlots() > 1;
         },
@@ -283,9 +300,6 @@ export default function layoutBuilder() {
         // ADD SLOT OPERATIONS
         // ==============================================
 
-        /**
-         * Add a new slot in the specified direction
-         */
         addSlot(rowIndex, slotIndex, direction) {
             const newSlot = {
                 id: generateId(),
@@ -335,9 +349,6 @@ export default function layoutBuilder() {
         // DELETE SLOT OPERATIONS
         // ==============================================
 
-        /**
-         * Delete a slot from the layout
-         */
         deleteSlot(rowIndex, slotIndex) {
             if (!this.canDelete()) return;
 
@@ -372,9 +383,6 @@ export default function layoutBuilder() {
         // WIDTH NORMALIZATION
         // ==============================================
 
-        /**
-         * Ensure all fluid slot widths in a row sum to exactly 12
-         */
         normalizeRowWidths(rowIndex) {
             const row = this.layout[rowIndex];
             const fluidSlots = row.children.filter(s => s.widthMode !== 'fixed');
@@ -393,9 +401,6 @@ export default function layoutBuilder() {
         // SLOT NAME EDITING
         // ==============================================
 
-        /**
-         * Updates a slot's name when the user edits it
-         */
         updateSlotName(rowIndex, slotIndex, newName) {
             const trimmed = newName.trim();
             if (trimmed) {
@@ -408,18 +413,12 @@ export default function layoutBuilder() {
         // HELPER METHODS
         // ==============================================
 
-        /**
-         * Gets the width of a slot (defaults to even distribution)
-         */
         getSlotWidth(row, slotIndex) {
             const slot = row.children[slotIndex];
             if (slot.width) return slot.width;
             return Math.floor(12 / row.children.length);
         },
 
-        /**
-         * Gets the CSS class for a slot's column span
-         */
         getSlotColSpanClass(row, slotIndex) {
             const width = this.getSlotWidth(row, slotIndex);
             return `col-span-${width}`;

@@ -11,11 +11,7 @@
     {{-- Main Canvas Area --}}
     <main class="flex-1 py-10">
 
-        {{--
-            Toolbar (constrained width)
-            Placed above the rows container with the same max-width
-            so it aligns with the content
-        --}}
+        {{-- Toolbar (constrained width) --}}
         <div class="max-w-7xl mx-auto mb-6 px-5">
             @include('layout-builder.partials.toolbar')
         </div>
@@ -26,11 +22,28 @@
             {{-- Loop through rows --}}
             <template x-for="(row, rowIndex) in layout" :key="row.id">
 
-                {{-- Row Wrapper --}}
-                <div class="flex w-full justify-center relative group/row">
+                {{--
+                    Row Wrapper (Flex Container)
+                    - Uses dynamic classes from getRowWrapperClass()
+                    - justify-center is added for boxed/fixed modes
+                    - This allows the inner content to be centered
+                --}}
+                <div
+                    :class="getRowWrapperClass(row)"
+                    class="relative group/row transition-all duration-200"
+                >
 
-                    {{-- Row Content (12-column grid) --}}
-                    <div class="grid grid-cols-12 gap-10 w-full max-w-7xl">
+                    {{--
+                        Row Content (Grid)
+                        - Uses dynamic classes from getRowContentClass()
+                        - Uses inline style from getRowContentStyle() for fixed widths
+                        - Contains the 12-column grid
+                    --}}
+                    <div
+                        :class="getRowContentClass(row)"
+                        :style="getRowContentStyle(row)"
+                        class="transition-all duration-300"
+                    >
 
                         {{-- Loop through slots in each row --}}
                         <template x-for="(slot, slotIndex) in row.children" :key="slot.id">
@@ -78,6 +91,92 @@
 
                     </div>
 
+                    {{--
+                        Row Width Indicator (appears on hover)
+                        Positioned on the left side of the row
+                        Shows current width mode and opens dropdown to change it
+                    --}}
+                    <div
+                        class="absolute -left-2 top-1/2 -translate-y-1/2 z-30 opacity-0 group-hover/row:opacity-100 transition-opacity duration-150"
+                        x-data="{ showMenu: false }"
+                    >
+                        {{-- Width Indicator Button --}}
+                        <button
+                            @click="showMenu = !showMenu"
+                            class="flex items-center gap-1 px-2 py-1 text-xs font-mono bg-white border border-slate-200 rounded-lg shadow-sm hover:border-blue-300 hover:text-blue-600 transition-colors"
+                            :title="getRowWidthDisplay(row)"
+                        >
+                            {{-- Resize icon --}}
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
+                            </svg>
+                            {{-- Current value display --}}
+                            <span x-text="row.rowWidthMode === 'full' ? 'Full' : (row.rowWidthMode === 'fixed' ? row.fixedWidth + 'px' : row.maxWidth)"></span>
+                        </button>
+
+                        {{-- Width Mode Dropdown --}}
+                        <div
+                            x-show="showMenu"
+                            @click.outside="showMenu = false"
+                            x-transition:enter="transition ease-out duration-100"
+                            x-transition:enter-start="opacity-0 scale-95"
+                            x-transition:enter-end="opacity-100 scale-100"
+                            x-transition:leave="transition ease-in duration-75"
+                            x-transition:leave-start="opacity-100 scale-100"
+                            x-transition:leave-end="opacity-0 scale-95"
+                            class="absolute left-0 top-full mt-1 w-48 bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-1"
+                        >
+                            {{-- Section: Full Width --}}
+                            <div class="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Width Mode</div>
+
+                            <button
+                                @click="setRowWidthMode(rowIndex, 'full'); showMenu = false"
+                                class="w-full px-3 py-2 text-left text-sm hover:bg-slate-50 flex items-center justify-between"
+                                :class="{ 'bg-blue-50 text-blue-600': row.rowWidthMode === 'full' }"
+                            >
+                                <span>Full Width</span>
+                                <span class="text-xs text-slate-400">100%</span>
+                            </button>
+
+                            {{-- Section: Boxed Presets --}}
+                            <div class="border-t border-slate-100 my-1"></div>
+                            <div class="px-3 py-1 text-xs font-semibold text-slate-500 uppercase tracking-wide">Boxed (Max Width)</div>
+
+                            {{-- Loop through presets --}}
+                            <template x-for="(preset, key) in rowWidthPresets" :key="key">
+                                <button
+                                    @click="setRowWidthMode(rowIndex, 'boxed', key); showMenu = false"
+                                    class="w-full px-3 py-2 text-left text-sm hover:bg-slate-50 flex items-center justify-between"
+                                    :class="{ 'bg-blue-50 text-blue-600': row.rowWidthMode === 'boxed' && row.maxWidth === key }"
+                                >
+                                    <span x-text="key"></span>
+                                    <span class="text-xs text-slate-400" x-text="preset.value + 'px'"></span>
+                                </button>
+                            </template>
+
+                            {{-- Section: Fixed Width --}}
+                            <div class="border-t border-slate-100 my-1"></div>
+                            <div class="px-3 py-1 text-xs font-semibold text-slate-500 uppercase tracking-wide">Fixed Width</div>
+
+                            {{-- Fixed Width Input --}}
+                            <div class="px-3 py-2">
+                                <div class="flex items-center gap-2">
+                                    <input
+                                        type="number"
+                                        :value="row.fixedWidth || 960"
+                                        @change="setRowWidthMode(rowIndex, 'fixed', $event.target.value)"
+                                        @keydown.enter="setRowWidthMode(rowIndex, 'fixed', $event.target.value); showMenu = false"
+                                        class="w-full px-2 py-1 text-sm border border-slate-200 rounded focus:border-blue-400 focus:ring-1 focus:ring-blue-400 outline-none"
+                                        placeholder="960"
+                                        min="200"
+                                        max="2000"
+                                    >
+                                    <span class="text-xs text-slate-400">px</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
 
             </template>
@@ -102,7 +201,7 @@
         </details>
     </footer>
 
-    {{-- Toast Notification (fixed position) --}}
+    {{-- Toast Notification --}}
     @include('layout-builder.partials.toast')
 
 </div>
