@@ -136,33 +136,16 @@ export default function layoutBuilder() {
             return classes.join(' ');
         },
 
-        /**
-         * Get classes for the inner row content
-         *
-         * IMPORTANT: This method now handles the Grid vs Flex decision.
-         *
-         * When a row has ANY fixed-width slots:
-         * - We use Flexbox instead of Grid
-         * - Fixed slots get their exact pixel width
-         * - Fluid slots use flex-1 to fill remaining space
-         *
-         * When all slots are fluid:
-         * - We use CSS Grid with 12 columns
-         * - Each slot uses col-span-X
-         */
         getRowContentClass(row) {
             const hasFixedSlots = this.rowHasFixedSlots(row);
 
             let classes;
             if (hasFixedSlots) {
-                // Flexbox for rows with fixed-width slots
                 classes = ['flex', 'gap-10', 'w-full'];
             } else {
-                // Grid for rows with all fluid slots
                 classes = ['grid', 'grid-cols-12', 'gap-10', 'w-full'];
             }
 
-            // Add max-width class for boxed mode
             if (row.rowWidthMode === 'boxed' && row.maxWidth) {
                 const preset = this.rowWidthPresets[row.maxWidth];
                 if (preset) {
@@ -180,12 +163,13 @@ export default function layoutBuilder() {
             return '';
         },
 
-        /**
-         * Check if a row has any fixed-width slots
-         * Used to determine if we should use Flexbox or Grid
-         */
         rowHasFixedSlots(row) {
-            return row.children.some(slot => slot.widthMode === 'fixed' && slot.fixedWidth);
+            return row.children.some(item => {
+                if (item.type === 'column') {
+                    return item.widthMode === 'fixed' && item.fixedWidth;
+                }
+                return item.widthMode === 'fixed' && item.fixedWidth;
+            });
         },
 
         setRowWidthMode(rowIndex, mode, value = null) {
@@ -222,67 +206,38 @@ export default function layoutBuilder() {
         // SLOT WIDTH CONTROL
         // ==============================================
 
-        /**
-         * Get the width of a slot (defaults to even distribution)
-         */
         getSlotWidth(row, slotIndex) {
-            const slot = row.children[slotIndex];
-            if (slot.width) return slot.width;
+            const item = row.children[slotIndex];
+            if (item.width) return item.width;
             return Math.floor(12 / row.children.length);
         },
 
-        /**
-         * Get inline style for a slot
-         * Used for fixed pixel width slots
-         */
         getSlotStyle(row, slotIndex) {
-            const slot = row.children[slotIndex];
+            const item = row.children[slotIndex];
 
-            if (slot.widthMode === 'fixed' && slot.fixedWidth) {
-                return `width: ${slot.fixedWidth}px;`;
+            if (item.widthMode === 'fixed' && item.fixedWidth) {
+                return `width: ${item.fixedWidth}px;`;
             }
 
             return '';
         },
 
-        /**
-         * Get the class for a slot's column span
-         *
-         * Behavior depends on whether the row has fixed-width slots:
-         *
-         * Row with fixed slots (Flexbox mode):
-         * - Fixed slots: flex-shrink-0 (don't grow or shrink)
-         * - Fluid slots: flex-1 (grow to fill remaining space)
-         *
-         * Row with all fluid slots (Grid mode):
-         * - All slots: col-span-X (X columns out of 12)
-         */
         getSlotColSpanClass(row, slotIndex) {
-            const slot = row.children[slotIndex];
+            const item = row.children[slotIndex];
             const hasFixedSlots = this.rowHasFixedSlots(row);
 
-            // Flexbox mode (row has fixed-width slots)
             if (hasFixedSlots) {
-                if (slot.widthMode === 'fixed' && slot.fixedWidth) {
-                    // Fixed slot: don't grow or shrink
+                if (item.widthMode === 'fixed' && item.fixedWidth) {
                     return 'flex-shrink-0';
                 } else {
-                    // Fluid slot: grow to fill remaining space
                     return 'flex-1';
                 }
             }
 
-            // Grid mode (all fluid slots)
             const width = this.getSlotWidth(row, slotIndex);
             return `col-span-${width}`;
         },
 
-        /**
-         * Set fluid width for a slot (1-12 columns)
-         *
-         * When changing a slot's width, we need to adjust sibling widths
-         * to ensure the total still equals 12.
-         */
         setFluidWidth(rowIndex, slotIndex, newWidth) {
             const row = this.layout[rowIndex];
             const slot = row.children[slotIndex];
@@ -291,36 +246,28 @@ export default function layoutBuilder() {
 
             if (delta === 0) return;
 
-            // Initialize all widths if needed
             row.children.forEach((s, idx) => {
                 if (!s.width) {
                     s.width = Math.floor(12 / row.children.length);
                 }
-                // Set this slot to fluid mode
                 if (idx === slotIndex) {
                     s.widthMode = 'fluid';
                     s.fixedWidth = null;
                 }
             });
 
-            // Find fluid siblings to redistribute width
             const siblings = row.children.filter((_, idx) =>
                 idx !== slotIndex && row.children[idx].widthMode !== 'fixed'
             );
 
             if (siblings.length === 0) {
-                // No fluid siblings, just set the width
                 slot.width = newWidth;
             } else {
-                // Calculate available width from siblings
                 const availableWidth = siblings.reduce((sum, s) => sum + s.width, 0);
                 const neededFromSiblings = delta;
 
                 if (neededFromSiblings > 0 && neededFromSiblings <= availableWidth - siblings.length) {
-                    // Taking width from siblings
                     slot.width = newWidth;
-
-                    // Distribute reduction proportionally
                     let remaining = neededFromSiblings;
                     siblings.forEach((sibling, idx) => {
                         const siblingIdx = row.children.indexOf(sibling);
@@ -331,7 +278,6 @@ export default function layoutBuilder() {
                         remaining -= share;
                     });
                 } else if (neededFromSiblings < 0) {
-                    // Giving width to siblings
                     slot.width = newWidth;
                     const extraWidth = Math.abs(neededFromSiblings);
                     const siblingIdx = row.children.indexOf(siblings[0]);
@@ -339,17 +285,10 @@ export default function layoutBuilder() {
                 }
             }
 
-            // Ensure total equals 12
             this.normalizeRowWidths(rowIndex);
             this.saveHistory();
         },
 
-        /**
-         * Set fixed pixel width for a slot
-         *
-         * When a slot becomes fixed-width, the row switches to Flexbox mode.
-         * Remaining fluid slots will use flex-1 to share the remaining space.
-         */
         setFixedWidth(rowIndex, slotIndex, pxValue) {
             const row = this.layout[rowIndex];
             const slot = row.children[slotIndex];
@@ -357,15 +296,10 @@ export default function layoutBuilder() {
             slot.widthMode = 'fixed';
             slot.fixedWidth = parseInt(pxValue) || 300;
 
-            // Redistribute widths among remaining fluid slots
             this.redistributeWidths(rowIndex);
             this.saveHistory();
         },
 
-        /**
-         * Redistribute widths evenly among fluid slots
-         * Called after a slot becomes fixed-width
-         */
         redistributeWidths(rowIndex) {
             const row = this.layout[rowIndex];
             const fluidSlots = row.children.filter(s => s.widthMode !== 'fixed');
@@ -380,9 +314,6 @@ export default function layoutBuilder() {
             });
         },
 
-        /**
-         * Ensure all fluid slot widths sum to exactly 12
-         */
         normalizeRowWidths(rowIndex) {
             const row = this.layout[rowIndex];
             const fluidSlots = row.children.filter(s => s.widthMode !== 'fixed');
@@ -429,6 +360,10 @@ export default function layoutBuilder() {
         // SLOT COUNTING & VALIDATION
         // ==============================================
 
+        /**
+         * Get total number of slots across all rows
+         * Counts nested slots inside columns
+         */
         getTotalSlots() {
             let count = 0;
             this.layout.forEach(row => {
@@ -451,6 +386,16 @@ export default function layoutBuilder() {
         // ADD SLOT OPERATIONS
         // ==============================================
 
+        /**
+         * Add a new slot in the specified direction
+         *
+         * Behavior:
+         * - LEFT/RIGHT: Add slot to the same row, redistribute widths
+         * - TOP/BOTTOM:
+         *   - If row has only 1 slot: Add as new row
+         *   - If row has multiple slots (split row): Convert to column
+         *     and stack slots vertically
+         */
         addSlot(rowIndex, slotIndex, direction) {
             const newSlot = {
                 id: generateId(),
@@ -463,16 +408,15 @@ export default function layoutBuilder() {
             };
 
             if (direction === 'left' || direction === 'right') {
+                // Horizontal: add to same row
                 const row = this.layout[rowIndex];
                 const insertIdx = direction === 'left' ? slotIndex : slotIndex + 1;
 
-                // Only redistribute fluid slots
                 const fluidSlots = row.children.filter(s => s.widthMode !== 'fixed');
                 const newFluidCount = fluidSlots.length + 1;
                 const baseWidth = Math.floor(12 / newFluidCount);
                 const remainder = 12 - (baseWidth * newFluidCount);
 
-                // Update existing fluid slot widths
                 let fluidIdx = 0;
                 row.children.forEach((slot) => {
                     if (slot.widthMode !== 'fixed') {
@@ -486,21 +430,158 @@ export default function layoutBuilder() {
                 this.normalizeRowWidths(rowIndex);
 
             } else {
-                newSlot.width = 12;
-                const newRow = {
-                    id: generateId(),
-                    type: 'row',
-                    rowWidthMode: 'boxed',
-                    maxWidth: '7xl',
-                    fixedWidth: null,
-                    children: [newSlot]
-                };
+                // Vertical: top or bottom
+                const row = this.layout[rowIndex];
 
-                const insertIdx = direction === 'top' ? rowIndex : rowIndex + 1;
-                this.layout.splice(insertIdx, 0, newRow);
+                // Check if this is a split row (more than one child)
+                if (row.children.length > 1) {
+                    /**
+                     * NESTED COLUMNS LOGIC
+                     *
+                     * When a row has multiple slots and user adds top/bottom,
+                     * we convert the slot into a "column" that can contain
+                     * multiple stacked slots.
+                     *
+                     * Before: Row → [Slot A, Slot B]
+                     * After:  Row → [Column(Slot A, New Slot), Slot B]
+                     */
+                    const currentItem = row.children[slotIndex];
+
+                    if (currentItem.type === 'column') {
+                        // Already a column, add to its children
+                        const insertIdx = direction === 'top' ? 0 : currentItem.children.length;
+                        currentItem.children.splice(insertIdx, 0, newSlot);
+                    } else {
+                        // Convert slot to column
+                        const column = {
+                            id: generateId(),
+                            type: 'column',
+                            width: currentItem.width,
+                            widthMode: currentItem.widthMode,
+                            fixedWidth: currentItem.fixedWidth,
+                            children: direction === 'top'
+                                ? [newSlot, currentItem]
+                                : [currentItem, newSlot]
+                        };
+
+                        // Clear width from original slot (column handles it now)
+                        currentItem.width = null;
+                        currentItem.widthMode = 'fluid';
+                        currentItem.fixedWidth = null;
+
+                        row.children[slotIndex] = column;
+                    }
+                } else {
+                    // Single slot row: add as new row
+                    newSlot.width = 12;
+                    const newRow = {
+                        id: generateId(),
+                        type: 'row',
+                        rowWidthMode: 'boxed',
+                        maxWidth: '7xl',
+                        fixedWidth: null,
+                        children: [newSlot]
+                    };
+                    const insertIdx = direction === 'top' ? rowIndex : rowIndex + 1;
+                    this.layout.splice(insertIdx, 0, newRow);
+                }
             }
 
             this.saveHistory();
+        },
+
+        // ==============================================
+        // NESTED SLOT OPERATIONS
+        // ==============================================
+
+        /**
+         * Add a slot within a column (nested)
+         *
+         * @param {number} rowIndex - Row containing the column
+         * @param {number} columnIndex - Index of the column in the row
+         * @param {number} nestedIndex - Index of the slot we're adding relative to
+         * @param {string} direction - 'top' or 'bottom'
+         */
+        addNestedSlot(rowIndex, columnIndex, nestedIndex, direction) {
+            const column = this.layout[rowIndex].children[columnIndex];
+            if (column.type !== 'column') return;
+
+            const newSlot = {
+                id: generateId(),
+                type: 'slot',
+                name: 'New Slot',
+                component: null,
+                width: null,
+                widthMode: 'fluid',
+                fixedWidth: null
+            };
+
+            const insertIdx = direction === 'top' ? nestedIndex : nestedIndex + 1;
+            column.children.splice(insertIdx, 0, newSlot);
+
+            this.saveHistory();
+        },
+
+        /**
+         * Delete a nested slot from within a column
+         */
+        deleteNestedSlot(rowIndex, columnIndex, nestedIndex) {
+            if (!this.canDelete()) return;
+
+            const row = this.layout[rowIndex];
+            const column = row.children[columnIndex];
+
+            if (column.type !== 'column') return;
+
+            column.children.splice(nestedIndex, 1);
+
+            // If only one slot remains in column, convert back to regular slot
+            if (column.children.length === 1) {
+                const remainingSlot = column.children[0];
+                remainingSlot.width = column.width;
+                remainingSlot.widthMode = column.widthMode;
+                remainingSlot.fixedWidth = column.fixedWidth;
+                row.children[columnIndex] = remainingSlot;
+            }
+
+            // If column is empty, remove it
+            if (column.children.length === 0) {
+                const deletedWidth = column.width || Math.floor(12 / row.children.length);
+                row.children.splice(columnIndex, 1);
+
+                if (row.children.length === 0) {
+                    this.layout.splice(rowIndex, 1);
+                } else {
+                    // Redistribute widths
+                    const widthPerSlot = Math.floor(deletedWidth / row.children.length);
+                    const remainder = deletedWidth - (widthPerSlot * row.children.length);
+
+                    row.children.forEach((slot, idx) => {
+                        slot.width = (slot.width || Math.floor(12 / (row.children.length + 1))) + widthPerSlot + (idx < remainder ? 1 : 0);
+                    });
+
+                    const total = row.children.reduce((sum, s) => sum + (s.width || 0), 0);
+                    if (total !== 12 && row.children.length > 0) {
+                        row.children[0].width = (row.children[0].width || 0) + (12 - total);
+                    }
+                }
+            }
+
+            this.saveHistory();
+        },
+
+        /**
+         * Update a nested slot's name
+         */
+        updateNestedSlotName(rowIndex, columnIndex, nestedIndex, newName) {
+            const trimmed = newName.trim();
+            if (trimmed) {
+                const column = this.layout[rowIndex].children[columnIndex];
+                if (column.type === 'column' && column.children[nestedIndex]) {
+                    column.children[nestedIndex].name = trimmed;
+                    this.saveHistory();
+                }
+            }
         },
 
         // ==============================================
@@ -511,16 +592,15 @@ export default function layoutBuilder() {
             if (!this.canDelete()) return;
 
             const row = this.layout[rowIndex];
-            const deletedSlot = row.children[slotIndex];
-            const wasFluid = deletedSlot.widthMode !== 'fixed';
-            const deletedWidth = deletedSlot.width || Math.floor(12 / row.children.length);
+            const deletedItem = row.children[slotIndex];
+            const wasFluid = deletedItem.widthMode !== 'fixed';
+            const deletedWidth = deletedItem.width || Math.floor(12 / row.children.length);
 
             row.children.splice(slotIndex, 1);
 
             if (row.children.length === 0) {
                 this.layout.splice(rowIndex, 1);
             } else if (wasFluid) {
-                // Redistribute deleted fluid width to remaining fluid slots
                 const fluidSlots = row.children.filter(s => s.widthMode !== 'fixed');
 
                 if (fluidSlots.length > 0) {
@@ -531,7 +611,6 @@ export default function layoutBuilder() {
                         slot.width = (slot.width || Math.floor(12 / fluidSlots.length)) + widthPerSlot + (idx < remainder ? 1 : 0);
                     });
 
-                    // Normalize to ensure total is 12
                     this.normalizeRowWidths(rowIndex);
                 }
             }

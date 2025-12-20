@@ -39,11 +39,11 @@
                         class="transition-all duration-300"
                     >
 
-                        {{-- Loop through slots in each row --}}
+                        {{-- Loop through slots/columns in each row --}}
                         <template x-for="(slot, slotIndex) in row.children" :key="slot.id">
 
                             {{--
-                                Slot Container
+                                Slot/Column Container
                                 - :class provides col-span-X (grid) or flex-1/flex-shrink-0 (flex)
                                 - :style provides fixed pixel width when in fixed mode
                             --}}
@@ -52,41 +52,102 @@
                                 :style="getSlotStyle(row, slotIndex)"
                                 class="group/slot relative transition-all duration-200"
                             >
-                                {{-- Add Buttons --}}
-                                @include('layout-builder.partials.add-buttons')
 
-                                {{-- Slot Width Control (only shows when row has > 1 slot) --}}
-                                @include('layout-builder.partials.width-control')
+                                {{--
+                                    ==========================================
+                                    REGULAR SLOT (type !== 'column')
+                                    ==========================================
+                                --}}
+                                <template x-if="slot.type !== 'column'">
+                                    <div class="h-full">
+                                        {{-- Add Buttons --}}
+                                        @include('layout-builder.partials.add-buttons')
 
-                                {{-- Delete Button --}}
-                                <button
-                                    @click="deleteSlot(rowIndex, slotIndex)"
-                                    x-show="canDelete()"
-                                    class="absolute bottom-3 right-3 z-20 w-8 h-8 bg-white border border-slate-200 text-slate-400 rounded-lg flex items-center justify-center shadow-sm cursor-pointer opacity-0 group-hover/slot:opacity-100 transition-all duration-150 hover:bg-red-50 hover:border-red-300 hover:text-red-500"
-                                    title="Delete slot"
-                                >
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                                    </svg>
-                                </button>
+                                        {{-- Slot Width Control (only shows when row has > 1 slot) --}}
+                                        @include('layout-builder.partials.width-control')
 
-                                {{-- Slot Content Box --}}
-                                <div
-                                    class="bg-white rounded-2xl border-2 border-dashed border-slate-300 p-6 flex items-center justify-center transition-all duration-200 hover:border-blue-500 hover:shadow-blue-500/10"
-                                    :class="{
-                                        'min-h-[100px]': slot.name !== 'Content',
-                                        'min-h-[400px]': slot.name === 'Content'
-                                    }"
-                                >
-                                    {{-- Editable Slot Name --}}
-                                    <span
-                                        class="font-mono text-sm text-slate-400 select-none outline-none cursor-text transition-all duration-150 focus:bg-slate-100 focus:px-2 focus:py-1 focus:rounded focus:text-slate-700"
-                                        contenteditable="true"
-                                        @blur="updateSlotName(rowIndex, slotIndex, $el.textContent)"
-                                        @keydown.enter.prevent="$el.blur()"
-                                        x-text="slot.name"
-                                    ></span>
-                                </div>
+                                        {{-- Delete Button --}}
+                                        <button
+                                            @click="deleteSlot(rowIndex, slotIndex)"
+                                            x-show="canDelete()"
+                                            class="absolute bottom-3 right-3 z-20 w-8 h-8 bg-white border border-slate-200 text-slate-400 rounded-lg flex items-center justify-center shadow-sm cursor-pointer opacity-0 group-hover/slot:opacity-100 transition-all duration-150 hover:bg-red-50 hover:border-red-300 hover:text-red-500"
+                                            title="Delete slot"
+                                        >
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                            </svg>
+                                        </button>
+
+                                        {{-- Slot Content Box --}}
+                                        <div
+                                            class="bg-white rounded-2xl border-2 border-dashed border-slate-300 p-6 flex items-center justify-center transition-all duration-200 hover:border-blue-500 hover:shadow-blue-500/10 h-full"
+                                            :class="{
+                                                'min-h-[100px]': slot.name !== 'Content',
+                                                'min-h-[400px]': slot.name === 'Content'
+                                            }"
+                                        >
+                                            {{-- Editable Slot Name --}}
+                                            <span
+                                                class="font-mono text-sm text-slate-400 select-none outline-none cursor-text transition-all duration-150 focus:bg-slate-100 focus:px-2 focus:py-1 focus:rounded focus:text-slate-700"
+                                                contenteditable="true"
+                                                @blur="updateSlotName(rowIndex, slotIndex, $el.textContent)"
+                                                @keydown.enter.prevent="$el.blur()"
+                                                x-text="slot.name"
+                                            ></span>
+                                        </div>
+                                    </div>
+                                </template>
+
+                                {{--
+                                    ==========================================
+                                    COLUMN (type === 'column')
+                                    Contains vertically stacked nested slots
+                                    ==========================================
+                                --}}
+                                <template x-if="slot.type === 'column'">
+                                    <div class="flex flex-col gap-3 h-full">
+
+                                        {{-- Column Width Control (at column level) --}}
+                                        @include('layout-builder.partials.width-control')
+
+                                        {{-- Loop through nested slots within this column --}}
+                                        <template x-for="(nestedSlot, nestedIndex) in slot.children" :key="nestedSlot.id">
+                                            <div class="group/nested relative flex-1">
+
+                                                {{-- Nested Add Buttons --}}
+                                                @include('layout-builder.partials.add-buttons-nested')
+
+                                                {{-- Nested Delete Button --}}
+                                                <button
+                                                    @click="deleteNestedSlot(rowIndex, slotIndex, nestedIndex)"
+                                                    x-show="canDelete()"
+                                                    class="absolute bottom-3 right-3 z-20 w-8 h-8 bg-white border border-slate-200 text-slate-400 rounded-lg flex items-center justify-center shadow-sm cursor-pointer opacity-0 group-hover/nested:opacity-100 transition-all duration-150 hover:bg-red-50 hover:border-red-300 hover:text-red-500"
+                                                    title="Delete nested slot"
+                                                >
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                                    </svg>
+                                                </button>
+
+                                                {{-- Nested Slot Content Box --}}
+                                                <div
+                                                    class="bg-white rounded-2xl border-2 border-dashed border-slate-300 p-6 flex items-center justify-center transition-all duration-200 hover:border-green-500 hover:shadow-green-500/10 h-full min-h-[80px]"
+                                                >
+                                                    {{-- Editable Nested Slot Name --}}
+                                                    <span
+                                                        class="font-mono text-sm text-slate-400 select-none outline-none cursor-text transition-all duration-150 focus:bg-slate-100 focus:px-2 focus:py-1 focus:rounded focus:text-slate-700"
+                                                        contenteditable="true"
+                                                        @blur="updateNestedSlotName(rowIndex, slotIndex, nestedIndex, $el.textContent)"
+                                                        @keydown.enter.prevent="$el.blur()"
+                                                        x-text="nestedSlot.name"
+                                                    ></span>
+                                                </div>
+                                            </div>
+                                        </template>
+
+                                    </div>
+                                </template>
+
                             </div>
 
                         </template>
