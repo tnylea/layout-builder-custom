@@ -17,7 +17,7 @@
         </div>
 
         {{-- Rows Container --}}
-        <div class="gap-10 flex flex-col w-full items-stretch justify-stretch px-5">
+        <div :class="getRowsGapClass()" class="flex flex-col w-full items-stretch justify-stretch px-5">
 
             {{-- Loop through rows --}}
             <template x-for="(row, rowIndex) in layout" :key="row.id">
@@ -105,7 +105,7 @@
                                     ==========================================
                                 --}}
                                 <template x-if="slot.type === 'column'">
-                                    <div class="flex flex-col gap-3 h-full">
+                                    <div :class="getNestedGapClass()" class="flex flex-col h-full">
 
                                         {{-- Column Width Control (at column level) --}}
                                         @include('layout-builder.partials.width-control')

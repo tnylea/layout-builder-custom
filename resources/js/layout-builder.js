@@ -19,6 +19,32 @@ export default function layoutBuilder() {
         toastMessage: '',
 
         /**
+         * Gap/Spacing Presets
+         * Maps semantic names to Tailwind gap classes and pixel values
+         */
+        gapPresets: {
+            'none': { class: 'gap-0', value: 0, label: 'None' },
+            'xs':   { class: 'gap-1', value: 4, label: '4px' },
+            'sm':   { class: 'gap-2', value: 8, label: '8px' },
+            'md':   { class: 'gap-4', value: 16, label: '16px' },
+            'lg':   { class: 'gap-6', value: 24, label: '24px' },
+            'xl':   { class: 'gap-8', value: 32, label: '32px' },
+            '2xl':  { class: 'gap-10', value: 40, label: '40px' },
+            '3xl':  { class: 'gap-12', value: 48, label: '48px' },
+            '4xl':  { class: 'gap-16', value: 64, label: '64px' },
+        },
+
+        /**
+         * Spacing Configuration
+         * Controls gaps between rows, columns, and nested slots
+         */
+        spacing: {
+            rows: '2xl',      // Gap between rows (vertical)
+            columns: '2xl',   // Gap between columns in a row (horizontal)
+            nested: 'sm',     // Gap between nested slots in a column (vertical)
+        },
+
+        /**
          * Row Width Presets
          */
         rowWidthPresets: {
@@ -125,6 +151,59 @@ export default function layoutBuilder() {
         },
 
         // ==============================================
+        // SPACING/GAP CONTROL
+        // ==============================================
+
+        /**
+         * Get the gap class for rows container
+         */
+        getRowsGapClass() {
+            const preset = this.gapPresets[this.spacing.rows];
+            return preset ? preset.class : 'gap-10';
+        },
+
+        /**
+         * Get the gap class for columns within a row
+         */
+        getColumnsGapClass() {
+            const preset = this.gapPresets[this.spacing.columns];
+            return preset ? preset.class : 'gap-10';
+        },
+
+        /**
+         * Get the gap class for nested slots within a column
+         */
+        getNestedGapClass() {
+            const preset = this.gapPresets[this.spacing.nested];
+            return preset ? preset.class : 'gap-2';
+        },
+
+        /**
+         * Set spacing for a specific type
+         */
+        setSpacing(type, value) {
+            if (this.spacing.hasOwnProperty(type) && this.gapPresets.hasOwnProperty(value)) {
+                this.spacing[type] = value;
+                this.saveHistory();
+            }
+        },
+
+        /**
+         * Apply a spacing preset to all gaps
+         */
+        applySpacingPreset(preset) {
+            const presets = {
+                'compact': { rows: 'md', columns: 'md', nested: 'xs' },
+                'comfortable': { rows: '2xl', columns: '2xl', nested: 'sm' },
+                'spacious': { rows: '3xl', columns: '3xl', nested: 'md' },
+            };
+            if (presets[preset]) {
+                this.spacing = { ...presets[preset] };
+                this.saveHistory();
+            }
+        },
+
+        // ==============================================
         // ROW WIDTH CONTROL
         // ==============================================
 
@@ -138,12 +217,13 @@ export default function layoutBuilder() {
 
         getRowContentClass(row) {
             const hasFixedSlots = this.rowHasFixedSlots(row);
+            const gapClass = this.getColumnsGapClass();
 
             let classes;
             if (hasFixedSlots) {
-                classes = ['flex', 'gap-10', 'w-full'];
+                classes = ['flex', gapClass, 'w-full'];
             } else {
-                classes = ['grid', 'grid-cols-12', 'gap-10', 'w-full'];
+                classes = ['grid', 'grid-cols-12', gapClass, 'w-full'];
             }
 
             if (row.rowWidthMode === 'boxed' && row.maxWidth) {

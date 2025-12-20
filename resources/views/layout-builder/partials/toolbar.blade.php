@@ -40,6 +40,9 @@
             </span>
         </div>
 
+        {{-- Spacing Control --}}
+        @include('layout-builder.partials.spacing-control')
+
         {{--
             Undo/Redo Buttons
             - :disabled binds to canUndo()/canRedo() - disables when no history

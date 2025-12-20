@@ -6,3 +6,4 @@ max-w-screen-sm max-w-screen-md max-w-screen-lg max-w-screen-xl max-w-screen-2xl
 max-w-5xl max-w-6xl max-w-7xl
 justify-center
 flex-1 flex-shrink-0
+gap-0 gap-1 gap-2 gap-4 gap-6 gap-8 gap-10 gap-12 gap-16
