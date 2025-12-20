@@ -22,22 +22,16 @@
             {{-- Loop through rows --}}
             <template x-for="(row, rowIndex) in layout" :key="row.id">
 
-                {{--
-                    Row Wrapper (Flex Container)
-                    - Uses dynamic classes from getRowWrapperClass()
-                    - justify-center is added for boxed/fixed modes
-                    - This allows the inner content to be centered
-                --}}
+                {{-- Row Wrapper (Flex Container) --}}
                 <div
                     :class="getRowWrapperClass(row)"
                     class="relative group/row transition-all duration-200"
                 >
 
                     {{--
-                        Row Content (Grid)
-                        - Uses dynamic classes from getRowContentClass()
-                        - Uses inline style from getRowContentStyle() for fixed widths
-                        - Contains the 12-column grid
+                        Row Content (Grid or Flex)
+                        - Grid mode: when all slots are fluid (col-span-X)
+                        - Flex mode: when any slot has fixed width (flex-1 + flex-shrink-0)
                     --}}
                     <div
                         :class="getRowContentClass(row)"
@@ -48,13 +42,21 @@
                         {{-- Loop through slots in each row --}}
                         <template x-for="(slot, slotIndex) in row.children" :key="slot.id">
 
-                            {{-- Slot Container --}}
+                            {{--
+                                Slot Container
+                                - :class provides col-span-X (grid) or flex-1/flex-shrink-0 (flex)
+                                - :style provides fixed pixel width when in fixed mode
+                            --}}
                             <div
                                 :class="getSlotColSpanClass(row, slotIndex)"
-                                class="group/slot relative"
+                                :style="getSlotStyle(row, slotIndex)"
+                                class="group/slot relative transition-all duration-200"
                             >
                                 {{-- Add Buttons --}}
                                 @include('layout-builder.partials.add-buttons')
+
+                                {{-- Slot Width Control (only shows when row has > 1 slot) --}}
+                                @include('layout-builder.partials.width-control')
 
                                 {{-- Delete Button --}}
                                 <button
@@ -91,30 +93,22 @@
 
                     </div>
 
-                    {{--
-                        Row Width Indicator (appears on hover)
-                        Positioned on the left side of the row
-                        Shows current width mode and opens dropdown to change it
-                    --}}
+                    {{-- Row Width Indicator --}}
                     <div
                         class="absolute -left-2 top-1/2 -translate-y-1/2 z-30 opacity-0 group-hover/row:opacity-100 transition-opacity duration-150"
                         x-data="{ showMenu: false }"
                     >
-                        {{-- Width Indicator Button --}}
                         <button
                             @click="showMenu = !showMenu"
                             class="flex items-center gap-1 px-2 py-1 text-xs font-mono bg-white border border-slate-200 rounded-lg shadow-sm hover:border-blue-300 hover:text-blue-600 transition-colors"
                             :title="getRowWidthDisplay(row)"
                         >
-                            {{-- Resize icon --}}
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
                             </svg>
-                            {{-- Current value display --}}
                             <span x-text="row.rowWidthMode === 'full' ? 'Full' : (row.rowWidthMode === 'fixed' ? row.fixedWidth + 'px' : row.maxWidth)"></span>
                         </button>
 
-                        {{-- Width Mode Dropdown --}}
                         <div
                             x-show="showMenu"
                             @click.outside="showMenu = false"
@@ -126,7 +120,6 @@
                             x-transition:leave-end="opacity-0 scale-95"
                             class="absolute left-0 top-full mt-1 w-48 bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-1"
                         >
-                            {{-- Section: Full Width --}}
                             <div class="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Width Mode</div>
 
                             <button
@@ -138,11 +131,9 @@
                                 <span class="text-xs text-slate-400">100%</span>
                             </button>
 
-                            {{-- Section: Boxed Presets --}}
                             <div class="border-t border-slate-100 my-1"></div>
                             <div class="px-3 py-1 text-xs font-semibold text-slate-500 uppercase tracking-wide">Boxed (Max Width)</div>
 
-                            {{-- Loop through presets --}}
                             <template x-for="(preset, key) in rowWidthPresets" :key="key">
                                 <button
                                     @click="setRowWidthMode(rowIndex, 'boxed', key); showMenu = false"
@@ -154,11 +145,9 @@
                                 </button>
                             </template>
 
-                            {{-- Section: Fixed Width --}}
                             <div class="border-t border-slate-100 my-1"></div>
                             <div class="px-3 py-1 text-xs font-semibold text-slate-500 uppercase tracking-wide">Fixed Width</div>
 
-                            {{-- Fixed Width Input --}}
                             <div class="px-3 py-2">
                                 <div class="flex items-center gap-2">
                                     <input

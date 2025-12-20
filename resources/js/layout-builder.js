@@ -20,14 +20,6 @@ export default function layoutBuilder() {
 
         /**
          * Row Width Presets
-         *
-         * Maps preset keys to Tailwind max-width classes and pixel values.
-         * These are the "boxed" width options users can choose from.
-         *
-         * Why use presets?
-         * - Consistent widths across the app
-         * - Maps directly to Tailwind classes (no custom CSS needed)
-         * - Easy to display human-readable labels
          */
         rowWidthPresets: {
             'sm':  { label: 'Small (640px)',   class: 'max-w-screen-sm', value: 640 },
@@ -136,41 +128,39 @@ export default function layoutBuilder() {
         // ROW WIDTH CONTROL
         // ==============================================
 
-        /**
-         * Get classes for the outer row wrapper (flex container)
-         *
-         * The wrapper is always full-width flex. Its job is to:
-         * - Center the content (justify-center) for boxed/fixed modes
-         * - Let content stretch full width for full mode
-         *
-         * @param {object} row - The row object
-         * @returns {string} Space-separated CSS classes
-         */
         getRowWrapperClass(row) {
             const classes = ['flex', 'w-full'];
-
-            // Center content for boxed and fixed modes
             if (row.rowWidthMode === 'boxed' || row.rowWidthMode === 'fixed') {
                 classes.push('justify-center');
             }
-
             return classes.join(' ');
         },
 
         /**
-         * Get classes for the inner row content (grid container)
+         * Get classes for the inner row content
          *
-         * This is where the 12-column grid lives.
-         * Width is controlled by:
-         * - 'full': No max-width constraint
-         * - 'boxed': Tailwind max-width class from preset
-         * - 'fixed': Inline style (see getRowContentStyle)
+         * IMPORTANT: This method now handles the Grid vs Flex decision.
          *
-         * @param {object} row - The row object
-         * @returns {string} Space-separated CSS classes
+         * When a row has ANY fixed-width slots:
+         * - We use Flexbox instead of Grid
+         * - Fixed slots get their exact pixel width
+         * - Fluid slots use flex-1 to fill remaining space
+         *
+         * When all slots are fluid:
+         * - We use CSS Grid with 12 columns
+         * - Each slot uses col-span-X
          */
         getRowContentClass(row) {
-            const classes = ['grid', 'grid-cols-12', 'gap-10', 'w-full'];
+            const hasFixedSlots = this.rowHasFixedSlots(row);
+
+            let classes;
+            if (hasFixedSlots) {
+                // Flexbox for rows with fixed-width slots
+                classes = ['flex', 'gap-10', 'w-full'];
+            } else {
+                // Grid for rows with all fluid slots
+                classes = ['grid', 'grid-cols-12', 'gap-10', 'w-full'];
+            }
 
             // Add max-width class for boxed mode
             if (row.rowWidthMode === 'boxed' && row.maxWidth) {
@@ -183,15 +173,6 @@ export default function layoutBuilder() {
             return classes.join(' ');
         },
 
-        /**
-         * Get inline styles for the row content
-         *
-         * Used for fixed pixel widths since we can't use
-         * Tailwind classes for arbitrary values like "max-width: 847px"
-         *
-         * @param {object} row - The row object
-         * @returns {string} Inline style string or empty
-         */
         getRowContentStyle(row) {
             if (row.rowWidthMode === 'fixed' && row.fixedWidth) {
                 return `max-width: ${row.fixedWidth}px;`;
@@ -200,27 +181,24 @@ export default function layoutBuilder() {
         },
 
         /**
-         * Set the row width mode
-         *
-         * @param {number} rowIndex - Index of the row to modify
-         * @param {string} mode - 'full' | 'boxed' | 'fixed'
-         * @param {string|number|null} value - Preset key for boxed, pixels for fixed
+         * Check if a row has any fixed-width slots
+         * Used to determine if we should use Flexbox or Grid
          */
+        rowHasFixedSlots(row) {
+            return row.children.some(slot => slot.widthMode === 'fixed' && slot.fixedWidth);
+        },
+
         setRowWidthMode(rowIndex, mode, value = null) {
             const row = this.layout[rowIndex];
-
             row.rowWidthMode = mode;
 
             if (mode === 'full') {
-                // Full width - no constraints
                 row.maxWidth = null;
                 row.fixedWidth = null;
             } else if (mode === 'boxed') {
-                // Boxed - use preset key (e.g., '7xl')
                 row.maxWidth = value || '7xl';
                 row.fixedWidth = null;
             } else if (mode === 'fixed') {
-                // Fixed - use pixel value
                 row.maxWidth = null;
                 row.fixedWidth = parseInt(value) || 960;
             }
@@ -228,12 +206,6 @@ export default function layoutBuilder() {
             this.saveHistory();
         },
 
-        /**
-         * Get human-readable display text for row width
-         *
-         * @param {object} row - The row object
-         * @returns {string} Display text like "Full Width" or "7xl"
-         */
         getRowWidthDisplay(row) {
             if (row.rowWidthMode === 'full') {
                 return 'Full Width';
@@ -244,6 +216,185 @@ export default function layoutBuilder() {
                 return `${row.fixedWidth}px`;
             }
             return 'Full Width';
+        },
+
+        // ==============================================
+        // SLOT WIDTH CONTROL
+        // ==============================================
+
+        /**
+         * Get the width of a slot (defaults to even distribution)
+         */
+        getSlotWidth(row, slotIndex) {
+            const slot = row.children[slotIndex];
+            if (slot.width) return slot.width;
+            return Math.floor(12 / row.children.length);
+        },
+
+        /**
+         * Get inline style for a slot
+         * Used for fixed pixel width slots
+         */
+        getSlotStyle(row, slotIndex) {
+            const slot = row.children[slotIndex];
+
+            if (slot.widthMode === 'fixed' && slot.fixedWidth) {
+                return `width: ${slot.fixedWidth}px;`;
+            }
+
+            return '';
+        },
+
+        /**
+         * Get the class for a slot's column span
+         *
+         * Behavior depends on whether the row has fixed-width slots:
+         *
+         * Row with fixed slots (Flexbox mode):
+         * - Fixed slots: flex-shrink-0 (don't grow or shrink)
+         * - Fluid slots: flex-1 (grow to fill remaining space)
+         *
+         * Row with all fluid slots (Grid mode):
+         * - All slots: col-span-X (X columns out of 12)
+         */
+        getSlotColSpanClass(row, slotIndex) {
+            const slot = row.children[slotIndex];
+            const hasFixedSlots = this.rowHasFixedSlots(row);
+
+            // Flexbox mode (row has fixed-width slots)
+            if (hasFixedSlots) {
+                if (slot.widthMode === 'fixed' && slot.fixedWidth) {
+                    // Fixed slot: don't grow or shrink
+                    return 'flex-shrink-0';
+                } else {
+                    // Fluid slot: grow to fill remaining space
+                    return 'flex-1';
+                }
+            }
+
+            // Grid mode (all fluid slots)
+            const width = this.getSlotWidth(row, slotIndex);
+            return `col-span-${width}`;
+        },
+
+        /**
+         * Set fluid width for a slot (1-12 columns)
+         *
+         * When changing a slot's width, we need to adjust sibling widths
+         * to ensure the total still equals 12.
+         */
+        setFluidWidth(rowIndex, slotIndex, newWidth) {
+            const row = this.layout[rowIndex];
+            const slot = row.children[slotIndex];
+            const currentWidth = slot.width || Math.floor(12 / row.children.length);
+            const delta = newWidth - currentWidth;
+
+            if (delta === 0) return;
+
+            // Initialize all widths if needed
+            row.children.forEach((s, idx) => {
+                if (!s.width) {
+                    s.width = Math.floor(12 / row.children.length);
+                }
+                // Set this slot to fluid mode
+                if (idx === slotIndex) {
+                    s.widthMode = 'fluid';
+                    s.fixedWidth = null;
+                }
+            });
+
+            // Find fluid siblings to redistribute width
+            const siblings = row.children.filter((_, idx) =>
+                idx !== slotIndex && row.children[idx].widthMode !== 'fixed'
+            );
+
+            if (siblings.length === 0) {
+                // No fluid siblings, just set the width
+                slot.width = newWidth;
+            } else {
+                // Calculate available width from siblings
+                const availableWidth = siblings.reduce((sum, s) => sum + s.width, 0);
+                const neededFromSiblings = delta;
+
+                if (neededFromSiblings > 0 && neededFromSiblings <= availableWidth - siblings.length) {
+                    // Taking width from siblings
+                    slot.width = newWidth;
+
+                    // Distribute reduction proportionally
+                    let remaining = neededFromSiblings;
+                    siblings.forEach((sibling, idx) => {
+                        const siblingIdx = row.children.indexOf(sibling);
+                        const share = idx === siblings.length - 1
+                            ? remaining
+                            : Math.max(1, Math.round((sibling.width / availableWidth) * neededFromSiblings));
+                        row.children[siblingIdx].width = Math.max(1, sibling.width - share);
+                        remaining -= share;
+                    });
+                } else if (neededFromSiblings < 0) {
+                    // Giving width to siblings
+                    slot.width = newWidth;
+                    const extraWidth = Math.abs(neededFromSiblings);
+                    const siblingIdx = row.children.indexOf(siblings[0]);
+                    row.children[siblingIdx].width += extraWidth;
+                }
+            }
+
+            // Ensure total equals 12
+            this.normalizeRowWidths(rowIndex);
+            this.saveHistory();
+        },
+
+        /**
+         * Set fixed pixel width for a slot
+         *
+         * When a slot becomes fixed-width, the row switches to Flexbox mode.
+         * Remaining fluid slots will use flex-1 to share the remaining space.
+         */
+        setFixedWidth(rowIndex, slotIndex, pxValue) {
+            const row = this.layout[rowIndex];
+            const slot = row.children[slotIndex];
+
+            slot.widthMode = 'fixed';
+            slot.fixedWidth = parseInt(pxValue) || 300;
+
+            // Redistribute widths among remaining fluid slots
+            this.redistributeWidths(rowIndex);
+            this.saveHistory();
+        },
+
+        /**
+         * Redistribute widths evenly among fluid slots
+         * Called after a slot becomes fixed-width
+         */
+        redistributeWidths(rowIndex) {
+            const row = this.layout[rowIndex];
+            const fluidSlots = row.children.filter(s => s.widthMode !== 'fixed');
+
+            if (fluidSlots.length === 0) return;
+
+            const widthPerSlot = Math.floor(12 / fluidSlots.length);
+            const remainder = 12 - (widthPerSlot * fluidSlots.length);
+
+            fluidSlots.forEach((slot, idx) => {
+                slot.width = widthPerSlot + (idx < remainder ? 1 : 0);
+            });
+        },
+
+        /**
+         * Ensure all fluid slot widths sum to exactly 12
+         */
+        normalizeRowWidths(rowIndex) {
+            const row = this.layout[rowIndex];
+            const fluidSlots = row.children.filter(s => s.widthMode !== 'fixed');
+            if (fluidSlots.length === 0) return;
+
+            const totalFluidWidth = fluidSlots.reduce((sum, s) => sum + (s.width || 1), 0);
+
+            if (totalFluidWidth !== 12) {
+                const diff = 12 - totalFluidWidth;
+                const lastFluidSlot = fluidSlots[fluidSlots.length - 1];
+                lastFluidSlot.width += diff;
+            }
         },
 
         // ==============================================
@@ -315,12 +466,19 @@ export default function layoutBuilder() {
                 const row = this.layout[rowIndex];
                 const insertIdx = direction === 'left' ? slotIndex : slotIndex + 1;
 
-                const newSlotCount = row.children.length + 1;
-                const baseWidth = Math.floor(12 / newSlotCount);
-                const remainder = 12 - (baseWidth * newSlotCount);
+                // Only redistribute fluid slots
+                const fluidSlots = row.children.filter(s => s.widthMode !== 'fixed');
+                const newFluidCount = fluidSlots.length + 1;
+                const baseWidth = Math.floor(12 / newFluidCount);
+                const remainder = 12 - (baseWidth * newFluidCount);
 
-                row.children.forEach((slot, idx) => {
-                    slot.width = baseWidth + (idx < remainder ? 1 : 0);
+                // Update existing fluid slot widths
+                let fluidIdx = 0;
+                row.children.forEach((slot) => {
+                    if (slot.widthMode !== 'fixed') {
+                        slot.width = baseWidth + (fluidIdx < remainder ? 1 : 0);
+                        fluidIdx++;
+                    }
                 });
 
                 newSlot.width = baseWidth;
@@ -353,48 +511,32 @@ export default function layoutBuilder() {
             if (!this.canDelete()) return;
 
             const row = this.layout[rowIndex];
-            const deletedWidth = row.children[slotIndex].width ||
-                Math.floor(12 / row.children.length);
+            const deletedSlot = row.children[slotIndex];
+            const wasFluid = deletedSlot.widthMode !== 'fixed';
+            const deletedWidth = deletedSlot.width || Math.floor(12 / row.children.length);
 
             row.children.splice(slotIndex, 1);
 
             if (row.children.length === 0) {
                 this.layout.splice(rowIndex, 1);
-            } else {
-                const widthPerSlot = Math.floor(deletedWidth / row.children.length);
-                const remainder = deletedWidth - (widthPerSlot * row.children.length);
+            } else if (wasFluid) {
+                // Redistribute deleted fluid width to remaining fluid slots
+                const fluidSlots = row.children.filter(s => s.widthMode !== 'fixed');
 
-                row.children.forEach((slot, idx) => {
-                    const currentWidth = slot.width ||
-                        Math.floor(12 / (row.children.length + 1));
-                    slot.width = currentWidth + widthPerSlot + (idx < remainder ? 1 : 0);
-                });
+                if (fluidSlots.length > 0) {
+                    const widthPerSlot = Math.floor(deletedWidth / fluidSlots.length);
+                    const remainder = deletedWidth - (widthPerSlot * fluidSlots.length);
 
-                const total = row.children.reduce((sum, s) => sum + s.width, 0);
-                if (total !== 12) {
-                    row.children[0].width += (12 - total);
+                    fluidSlots.forEach((slot, idx) => {
+                        slot.width = (slot.width || Math.floor(12 / fluidSlots.length)) + widthPerSlot + (idx < remainder ? 1 : 0);
+                    });
+
+                    // Normalize to ensure total is 12
+                    this.normalizeRowWidths(rowIndex);
                 }
             }
 
             this.saveHistory();
-        },
-
-        // ==============================================
-        // WIDTH NORMALIZATION
-        // ==============================================
-
-        normalizeRowWidths(rowIndex) {
-            const row = this.layout[rowIndex];
-            const fluidSlots = row.children.filter(s => s.widthMode !== 'fixed');
-            if (fluidSlots.length === 0) return;
-
-            const totalFluidWidth = fluidSlots.reduce((sum, s) => sum + (s.width || 1), 0);
-
-            if (totalFluidWidth !== 12) {
-                const diff = 12 - totalFluidWidth;
-                const lastFluidSlot = fluidSlots[fluidSlots.length - 1];
-                lastFluidSlot.width += diff;
-            }
         },
 
         // ==============================================
@@ -407,21 +549,6 @@ export default function layoutBuilder() {
                 this.layout[rowIndex].children[slotIndex].name = trimmed;
                 this.saveHistory();
             }
-        },
-
-        // ==============================================
-        // HELPER METHODS
-        // ==============================================
-
-        getSlotWidth(row, slotIndex) {
-            const slot = row.children[slotIndex];
-            if (slot.width) return slot.width;
-            return Math.floor(12 / row.children.length);
-        },
-
-        getSlotColSpanClass(row, slotIndex) {
-            const width = this.getSlotWidth(row, slotIndex);
-            return `col-span-${width}`;
         }
     };
 }
