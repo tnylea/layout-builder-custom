@@ -11,6 +11,15 @@
     {{-- Main Canvas Area --}}
     <main class="flex-1 py-10">
 
+        {{--
+            Toolbar (constrained width)
+            Placed above the rows container with the same max-width
+            so it aligns with the content
+        --}}
+        <div class="max-w-7xl mx-auto mb-6 px-5">
+            @include('layout-builder.partials.toolbar')
+        </div>
+
         {{-- Rows Container --}}
         <div class="gap-10 flex flex-col w-full items-stretch justify-stretch px-5">
 
@@ -26,35 +35,21 @@
                         {{-- Loop through slots in each row --}}
                         <template x-for="(slot, slotIndex) in row.children" :key="slot.id">
 
-                            {{--
-                                Slot Container
-                                Notice: We wrap the slot content in another div
-                                so we can position the add/delete buttons relative to it
-                            --}}
+                            {{-- Slot Container --}}
                             <div
                                 :class="getSlotColSpanClass(row, slotIndex)"
                                 class="group/slot relative"
                             >
-                                {{--
-                                    Include the add buttons partial
-                                    These buttons appear on hover and call addSlot()
-                                    They use rowIndex and slotIndex from the parent x-for loops
-                                --}}
+                                {{-- Add Buttons --}}
                                 @include('layout-builder.partials.add-buttons')
 
-                                {{--
-                                    Delete Button
-                                    - x-show="canDelete()": Only show if we have > 1 slot
-                                    - opacity-0 + group-hover/slot:opacity-100: Appear on hover
-                                    - Positioned bottom-right of the slot
-                                --}}
+                                {{-- Delete Button --}}
                                 <button
                                     @click="deleteSlot(rowIndex, slotIndex)"
                                     x-show="canDelete()"
                                     class="absolute bottom-3 right-3 z-20 w-8 h-8 bg-white border border-slate-200 text-slate-400 rounded-lg flex items-center justify-center shadow-sm cursor-pointer opacity-0 group-hover/slot:opacity-100 transition-all duration-150 hover:bg-red-50 hover:border-red-300 hover:text-red-500"
                                     title="Delete slot"
                                 >
-                                    {{-- Trash icon --}}
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                                     </svg>
@@ -106,6 +101,9 @@
             ></pre>
         </details>
     </footer>
+
+    {{-- Toast Notification (fixed position) --}}
+    @include('layout-builder.partials.toast')
 
 </div>
 
