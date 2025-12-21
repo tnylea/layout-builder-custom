@@ -1,4 +1,4 @@
-<x-layouts.app>
+<x-layouts.cdn>
     <section x-data="{
         layout: [],
         history: [],
@@ -70,4 +70,4 @@
             </div>
         </template>
     </section>
-</x-layouts.app>
+</x-layouts.cdn>
