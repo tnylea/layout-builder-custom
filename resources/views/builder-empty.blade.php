@@ -1,3 +1,1 @@
-<x-layouts.cdn>
-<p>hello</p>
-</x-layouts.cdn>
+<x-layouts.cdn></x-layouts.cdn>

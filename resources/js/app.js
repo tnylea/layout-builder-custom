@@ -18,7 +18,7 @@ iframe.onload = function() {
     <!-- Header -->
     <header class="border-b">
         <!-- Header slot -->
-        <div class="w-full h-[100px]"></div>
+        <div data-ignore class="w-full h-[100px]"></div>
     </header>
 
     <!-- Main layout -->
@@ -37,7 +37,7 @@ iframe.onload = function() {
     <!-- Footer -->
     <footer class="border-t">
         <!-- Footer slot -->
-        <div class="w-full h-[100px]"></div>
+        <div data-ignore class="w-full h-[100px]"></div>
     </footer>
 </div>`;
 };

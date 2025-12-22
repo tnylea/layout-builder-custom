@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a layout builder application built with Laravel 12, Livewire Volt, Alpine.js, and TailwindCSS v4. The app allows users to create and manage page layouts with configurable rows and slots.
+This is a layout builder application built with Laravel 12, Livewire, Alpine.js, and TailwindCSS v4. The app allows users to create and manage page layouts with configurable columns, rows, and slots.
 
 ## Development Commands
 
@@ -49,7 +49,6 @@ npm run build
 The layout builder uses an Alpine.js data structure with:
 - **Rows**: Container elements with width modes (`full`, `boxed`, `fixed`)
 - **Slots**: Child elements within rows with names, components, and width settings
-- **History**: Undo/redo support with 50-entry limit
 
 ### Testing
 
