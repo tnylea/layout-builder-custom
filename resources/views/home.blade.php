@@ -1,5 +1,20 @@
-<x-layouts.app>
-    <div class="flex h-screen w-screen bg-neutral-100">
+<x-layouts.main>
+
+@php
+    $layouts = ['full-width', 'sidebar'];
+    
+    $layoutHtml = [];
+    foreach ($layouts as $layout) {
+        $layoutHtml[$layout] = trim(view("layouts.{$layout}")->render());
+    }
+
+@endphp
+
+    <script>
+    window.layout = @json($layoutHtml['full-width']);
+    </script>
+
+    <div class="flex h-screen w-screen bg-neutral-900 text-stone-400">
         {{-- Main Builder Area --}}
         <div class="flex-1 flex flex-col px-2">
             <div class="h-10 w-full flex items-center justify-between">
@@ -17,7 +32,7 @@
         {{-- Right Sidebar Panel --}}
         <div class="w-72 flex flex-col" x-data="{ get selectedElement() { return $store.builder.selectedElement } }">
             <div class="p-4 border-b border-stone-200">
-                <h2 class="font-semibold text-gray-900">Element Inspector</h2>
+                <h2 class="font-semibold text-neutral-400">Element Inspector</h2>
             </div>
             <div class="flex-1 p-4 overflow-y-auto">
                 <template x-if="selectedElement">
@@ -52,4 +67,4 @@
             </div>
         </div>
     </div>
-</x-layouts.app>
+</x-layouts.main>

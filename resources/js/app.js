@@ -64,7 +64,10 @@ function createBuilderIframe() {
         <div class="grid grid-cols-1 md:grid-cols-[16rem_1fr] bg-stone-100 ease-linear transition-all">
             <!-- Sidebar -->
             <aside class="border border-stone-400">
+                <div class="p-2 bg-pink-200">asdf
                 <!-- Sidebar slot -->
+                </div>
+                <div class="p-3 bg-blue-200">more content</div>
             </aside>
 
             <!-- Content -->
