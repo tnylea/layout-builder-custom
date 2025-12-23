@@ -24,6 +24,78 @@ Alpine.start();
 
 
 // ============================================================================
+// IFRAME INITIALIZATION
+// ============================================================================
+// Dynamically creates an iframe with Tailwind CSS and Alpine CDN,
+// then loads the iframe selector functionality.
+
+function createBuilderIframe() {
+    const container = document.getElementById('builder-iframe-container');
+    if (!container) return;
+
+    // Create the iframe element
+    const iframe = document.createElement('iframe');
+    iframe.className = 'w-full h-full border-none';
+    container.appendChild(iframe);
+
+    // Get the iframe document
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+
+    // Write the initial HTML structure with CDN scripts
+    iframeDoc.open();
+    iframeDoc.write(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body>
+    <div class="min-h-screen p-3 grid grid-rows-[auto_1fr_auto]">
+        <!-- Header -->
+        <header class="bg-stone-100 border border-stone-400 ease-linear transition-all">
+            <!-- Header slot -->
+            <div data-ignore class="w-full h-[100px]"></div>
+        </header>
+
+        <!-- Main layout -->
+        <div class="grid grid-cols-1 md:grid-cols-[16rem_1fr] bg-stone-100 ease-linear transition-all">
+            <!-- Sidebar -->
+            <aside class="border border-stone-400">
+                <!-- Sidebar slot -->
+            </aside>
+
+            <!-- Content -->
+            <main class="p-6 border border-stone-400">
+                <!-- Content slot -->
+            </main>
+        </div>
+
+        <!-- Footer -->
+        <footer class="border border-stone-400 bg-stone-100 ease-linear transition-all">
+            <!-- Footer slot -->
+            <div data-ignore class="w-full h-[100px]"></div>
+        </footer>
+    </div>
+</body>
+</html>
+    `);
+    iframeDoc.close();
+
+    // Wait for the iframe content to be ready, then initialize the selector
+    iframe.onload = function() {
+        initializeIframeSelector(iframeDoc);
+    };
+
+    // If the document is already loaded (synchronous write), initialize immediately
+    if (iframeDoc.readyState === 'complete') {
+        initializeIframeSelector(iframeDoc);
+    }
+}
+
+// ============================================================================
 // ╔═══════════════════════════════════════════════════════════════════════════╗
 // ║                                                                           ║
 // ║                        IFRAME SELECTOR FUNCTIONALITY                      ║
@@ -262,44 +334,13 @@ const iframeSelector = {
 // Make the selector available globally for the parent window to access
 window.iframeSelector = iframeSelector;
 
-
-// ============================================================================
-// IFRAME INITIALIZATION
-// ============================================================================
-
-const iframe = document.querySelector('iframe');
-
-iframe.onload = function() {
-    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-
-    // Inject the layout HTML into the iframe
-    iframeDoc.body.innerHTML = `<div class="min-h-screen p-3 grid grid-rows-[auto_1fr_auto]">
-    <!-- Header -->
-    <header class="bg-stone-100 border border-stone-400 ease-linear transition-all">
-        <!-- Header slot -->
-        <div data-ignore class="w-full h-[100px]"></div>
-    </header>
-
-    <!-- Main layout -->
-    <div class="grid grid-cols-1 md:grid-cols-[16rem_1fr] bg-stone-100  ease-linear transition-all">
-        <!-- Sidebar -->
-        <aside class="border border-stone-400">
-            <!-- Sidebar slot -->
-        </aside>
-
-        <!-- Content -->
-        <main class="p-6 border border-stone-400">
-            <!-- Content slot -->
-        </main>
-    </div>
-
-    <!-- Footer -->
-    <footer class="border border-stone-400 bg-stone-100   ease-linear transition-all">
-        <!-- Footer slot -->
-        <div data-ignore class="w-full h-[100px]"></div>
-    </footer>
-</div>`;
-
-    // Initialize the selector on the iframe
+/**
+ * Initialize the iframe selector on a given document
+ * @param {Document} iframeDoc - The iframe's document object
+ */
+function initializeIframeSelector(iframeDoc) {
     iframeSelector.init(iframeDoc);
-};
+}
+
+// Initialize the builder iframe when the DOM is ready
+document.addEventListener('DOMContentLoaded', createBuilderIframe);

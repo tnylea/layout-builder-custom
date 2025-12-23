@@ -9,8 +9,8 @@
                 </div>
                 <div></div>
             </div>
-            <div class="flex-1 bg-white border border-stone-200 border-b-0 rounded-t-xl overflow-hidden">
-                <iframe src="/builder" class="w-full h-full border-none"></iframe>
+            <div id="builder-iframe-container" class="flex-1 bg-white border border-stone-200 border-b-0 rounded-t-xl overflow-hidden">
+                {{-- Iframe is dynamically created by app.js --}}
             </div>
         </div>
 
