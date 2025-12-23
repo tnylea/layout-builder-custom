@@ -273,28 +273,28 @@ iframe.onload = function() {
     const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
 
     // Inject the layout HTML into the iframe
-    iframeDoc.body.innerHTML = `<div class="min-h-screen grid grid-rows-[auto_1fr_auto]">
+    iframeDoc.body.innerHTML = `<div class="min-h-screen p-3 grid grid-rows-[auto_1fr_auto]">
     <!-- Header -->
-    <header class="border-b">
+    <header class="bg-stone-100 border border-stone-400 ease-linear transition-all">
         <!-- Header slot -->
         <div data-ignore class="w-full h-[100px]"></div>
     </header>
 
     <!-- Main layout -->
-    <div class="grid grid-cols-1 md:grid-cols-[16rem_1fr]">
+    <div class="grid grid-cols-1 md:grid-cols-[16rem_1fr] bg-stone-100  ease-linear transition-all">
         <!-- Sidebar -->
-        <aside class="border-r">
+        <aside class="border border-stone-400">
             <!-- Sidebar slot -->
         </aside>
 
         <!-- Content -->
-        <main class="p-6">
+        <main class="p-6 border border-stone-400">
             <!-- Content slot -->
         </main>
     </div>
 
     <!-- Footer -->
-    <footer class="border-t">
+    <footer class="border border-stone-400 bg-stone-100   ease-linear transition-all">
         <!-- Footer slot -->
         <div data-ignore class="w-full h-[100px]"></div>
     </footer>

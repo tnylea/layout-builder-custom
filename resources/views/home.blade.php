@@ -4,7 +4,9 @@
         <div class="flex-1 flex flex-col px-2">
             <div class="h-10 w-full flex items-center justify-between">
                 <div>Default (Edit)</div>
-                <div class="text-sm text-gray-500">Preview</div>
+                <div class="text-sm text-gray-500 flex items-center gap-2">
+                    @include('partials.responsive-buttons')
+                </div>
                 <div></div>
             </div>
             <div class="flex-1 bg-white border border-stone-200 border-b-0 rounded-t-xl overflow-hidden">
@@ -13,7 +15,7 @@
         </div>
 
         {{-- Right Sidebar Panel --}}
-        <div class="w-72 bg-white border-l border-stone-200 flex flex-col" x-data="{ get selectedElement() { return $store.builder.selectedElement } }">
+        <div class="w-72 flex flex-col" x-data="{ get selectedElement() { return $store.builder.selectedElement } }">
             <div class="p-4 border-b border-stone-200">
                 <h2 class="font-semibold text-gray-900">Element Inspector</h2>
             </div>
