@@ -53,32 +53,17 @@ function createBuilderIframe() {
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 <body>
-    <div class="min-h-screen p-3 grid grid-rows-[auto_1fr_auto]">
-        <!-- Header -->
-        <header class="bg-stone-100 border border-stone-400 ease-linear transition-all">
-            <!-- Header slot -->
+    <div class="min-h-screen p-3 flex flex-col builder-layout">
+        <header>
             <div data-ignore class="w-full h-[100px]"></div>
         </header>
 
-        <!-- Main layout -->
-        <div class="grid grid-cols-1 md:grid-cols-[16rem_1fr] bg-stone-100 ease-linear transition-all">
-            <!-- Sidebar -->
-            <aside class="border border-stone-400">
-                <div class="p-2 bg-pink-200">asdf
-                <!-- Sidebar slot -->
-                </div>
-                <div class="p-3 bg-blue-200">more content</div>
-            </aside>
-
-            <!-- Content -->
-            <main class="p-6 border border-stone-400">
-                <!-- Content slot -->
-            </main>
+        <div class="flex-1 flex flex-col md:flex-row">
+            <aside class="md:w-64 shrink-0"></aside>
+            <main class="flex-1 p-6"></main>
         </div>
 
-        <!-- Footer -->
-        <footer class="border border-stone-400 bg-stone-100 ease-linear transition-all">
-            <!-- Footer slot -->
+        <footer>
             <div data-ignore class="w-full h-[100px]"></div>
         </footer>
     </div>
@@ -167,6 +152,13 @@ const iframeSelector = {
             .${this.classes.selected}.${this.classes.hover} {
                 outline: 2px solid #3b82f6 !important;
             }
+        
+            .builder-layout > * {
+                background:#ccc;
+                border: 1px solid #999;
+            }
+            
+    }
         `;
         this.iframeDoc.head.appendChild(style);
     },
