@@ -8,8 +8,22 @@ window.Alpine = Alpine;
 // This Alpine data store manages the selected element state from the parent
 // window. The iframe communicates selection events back to this store.
 
+// Default body HTML content
+const defaultBodyHtml = `<div class="min-h-screen p-3 gap-3 flex flex-col builder-layout">
+    <header class="min-h-[100px]" data-slot="header"></header>
+
+    <div class="flex-1 flex gap-3 flex-col md:flex-row">
+        <aside class="md:w-64 shrink-0" data-slot="left-column"></aside>
+        <main class="flex-1 p-6" data-slot="content"></main>
+    </div>
+
+    <footer class="min-h-[100px]" data-slot="footer"></footer>
+</div>`;
+
 Alpine.store('builder', {
     selectedElement: null,
+    bodyHtml: defaultBodyHtml,
+    iframeDoc: null,
 
     setSelectedElement(element) {
         this.selectedElement = element;
@@ -17,6 +31,27 @@ Alpine.store('builder', {
 
     clearSelection() {
         this.selectedElement = null;
+    },
+
+    setBodyHtml(html) {
+        this.bodyHtml = html;
+        this.updateIframeBody();
+    },
+
+    setIframeDoc(doc) {
+        this.iframeDoc = doc;
+    },
+
+    updateIframeBody() {
+        if (this.iframeDoc && this.iframeDoc.body) {
+            // Clear selection before updating
+            window.iframeSelector.clearSelection();
+            this.selectedElement = null;
+            // Update the body content
+            this.iframeDoc.body.innerHTML = this.bodyHtml;
+            // Re-inject selector styles (they get removed when body changes)
+            window.iframeSelector.injectStyles();
+        }
     }
 });
 
@@ -43,6 +78,9 @@ function createBuilderIframe() {
 
     // Write the initial HTML structure with CDN scripts
     iframeDoc.open();
+    // Get the initial body HTML from the store
+    const bodyHtml = Alpine.store('builder').bodyHtml;
+
     iframeDoc.write(`
 <!DOCTYPE html>
 <html lang="en">
@@ -53,16 +91,7 @@ function createBuilderIframe() {
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 <body>
-    <div class="min-h-screen m-3 flex flex-col builder-layout">
-        <header class="min-h-[100px]" data-slot="header"></header>
-
-        <div class="flex-1 flex flex-col md:flex-row">
-            <aside class="md:w-64 shrink-0" data-slot="left-column"></aside>
-            <main class="flex-1 p-6" data-slot="content"></main>
-        </div>
-
-        <footer class="min-h-[100px]" data-slot="footer"></footer>
-    </div>
+${bodyHtml}
 </body>
 </html>
     `);
@@ -333,6 +362,8 @@ window.iframeSelector = iframeSelector;
  */
 function initializeIframeSelector(iframeDoc) {
     iframeSelector.init(iframeDoc);
+    // Store the iframe document reference in Alpine store for live updates
+    Alpine.store('builder').setIframeDoc(iframeDoc);
 }
 
 // Initialize the builder iframe when the DOM is ready

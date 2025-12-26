@@ -1,4 +1,8 @@
-<div class="w-72 flex flex-col" {{  $attributes }} x-data="{ get selectedElement() { return $store.builder.selectedElement } }">
+<div class="w-72 flex flex-col" {{  $attributes }} x-data="{ 
+    get selectedElement() { return $store.builder.selectedElement },
+    get bodyHtml() { return $store.builder.bodyHtml },
+    set bodyHtml(value) { $store.builder.setBodyHtml(value) }
+}">
     <div class="p-4 border-b border-stone-200">
         <h2 class="font-semibold text-neutral-400">Element Inspector</h2>
     </div>
@@ -17,6 +21,7 @@
                     <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">ID</label>
                     <div class="text-sm font-mono bg-gray-100 px-2 py-1 rounded" x-text="selectedElement.id || '(none)'"></div>
                 </div>
+                <div></div>
                 <div class="pt-4 border-t border-stone-200">
                     <button
                         @click="window.iframeSelector.unselectElement()"
@@ -32,5 +37,16 @@
                 Click on an element in the preview to select it
             </div>
         </template>
+
+        {{-- HTML Editor --}}
+        <div class="mt-4 pt-4 border-t border-stone-200">
+            <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Body HTML</label>
+            <textarea
+                x-model="bodyHtml"
+                @input.debounce.300ms="$store.builder.setBodyHtml($event.target.value)"
+                class="w-full h-48 text-xs font-mono bg-neutral-800 text-neutral-300 p-2 rounded border border-neutral-700 focus:border-blue-500 focus:outline-none resize-y"
+                placeholder="Enter HTML..."
+            ></textarea>
+        </div>
     </div>
 </div>
