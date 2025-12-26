@@ -53,19 +53,15 @@ function createBuilderIframe() {
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 <body>
-    <div class="min-h-screen p-3 flex flex-col builder-layout">
-        <header>
-            <div data-ignore class="w-full h-[100px]"></div>
-        </header>
+    <div class="min-h-screen m-3 flex flex-col builder-layout">
+        <header class="min-h-[100px]" data-slot="header"></header>
 
         <div class="flex-1 flex flex-col md:flex-row">
-            <aside class="md:w-64 shrink-0"></aside>
-            <main class="flex-1 p-6"></main>
+            <aside class="md:w-64 shrink-0" data-slot="left-column"></aside>
+            <main class="flex-1 p-6" data-slot="content"></main>
         </div>
 
-        <footer>
-            <div data-ignore class="w-full h-[100px]"></div>
-        </footer>
+        <footer class="min-h-[100px]" data-slot="footer"></footer>
     </div>
 </body>
 </html>
@@ -135,6 +131,12 @@ const iframeSelector = {
                 pointer-events: none !important;
             }
 
+            [data-slot]{
+                background:rgba(3, 90, 250, 0.02);
+                border: 1px solid rgba(3, 90, 250, 0.5);
+                border-radius: 10px;
+            }
+
             /* Hover state - dashed blue border */
             .${this.classes.hover} {
                 outline: 2px dashed #3b82f6 !important;
@@ -153,10 +155,6 @@ const iframeSelector = {
                 outline: 2px solid #3b82f6 !important;
             }
         
-            .builder-layout > * {
-                background:#ccc;
-                border: 1px solid #999;
-            }
             
     }
         `;
