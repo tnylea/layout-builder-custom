@@ -132,7 +132,7 @@ const iframeSelector = {
             }
 
             [data-slot]{
-                background:rgba(3, 90, 250, 0.02);
+                background:rgba(3, 90, 250, 0.09);
                 border: 1px solid rgba(3, 90, 250, 0.5);
                 border-radius: 10px;
             }
